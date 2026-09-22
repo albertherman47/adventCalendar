@@ -1,0 +1,6 @@
+{
+  "name": "Christmas Reset 2026",
+  "description": "Deschide o ușă în fiecare zi. Fă un singur lucru mărunt. Bucură-te cu adevărat de sărbători. Metoda ritmică Atelier pentru un decembrie liniștit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
