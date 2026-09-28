@@ -45,27 +45,27 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
 
           {/* Main Headline */}
-          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-[#2C0B12] leading-[1.12] mb-6">
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-[#2C0B12] leading-[1.15] mb-6 text-balance">
             {t.hero.headline}
           </h1>
 
           {/* Refined Subheadline */}
-          <p className="text-base sm:text-lg text-[#5E574D] font-normal leading-relaxed mb-8 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-[#5E574D] font-normal leading-relaxed mb-8 max-w-2xl mx-auto">
             {t.hero.subheadline}
           </p>
 
-          {/* Conversion CTAs */}
+          {/* Conversion CTAs - Full width touch targets on mobile */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-8">
             <button
               onClick={handlePrimaryCta}
-              className="w-full sm:w-auto bg-[#621927] hover:bg-[#46121C] text-[#FDFBF7] px-8 py-3.5 rounded-xl font-medium text-base tracking-wide transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2.5 cursor-pointer border border-[#C29B48]/50 group"
+              className="w-full sm:w-auto bg-[#621927] hover:bg-[#46121C] text-[#FDFBF7] px-8 py-3.5 rounded-xl font-medium text-base tracking-wide transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2.5 cursor-pointer border border-[#C29B48]/50 group min-h-[48px]"
             >
               <span>{t.hero.primaryCta}</span>
               <ArrowRight className="w-4 h-4 text-[#D8B76E] transition-transform group-hover:translate-x-1" />
             </button>
             <button
               onClick={handleSecondaryCta}
-              className="w-full sm:w-auto bg-white/80 hover:bg-white text-[#2C0B12] hover:text-[#621927] px-7 py-3.5 rounded-xl font-medium text-base tracking-wide transition-all border border-[#EAE3D5] shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto bg-white/80 hover:bg-white text-[#2C0B12] hover:text-[#621927] px-7 py-3.5 rounded-xl font-medium text-base tracking-wide transition-all border border-[#EAE3D5] shadow-xs flex items-center justify-center gap-2 cursor-pointer min-h-[48px]"
             >
               <Calendar className="w-4 h-4 text-[#7E2232]" />
               <span>{t.hero.secondaryCta}</span>
@@ -73,17 +73,17 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
 
           {/* Genuine Trust Factors */}
-          <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-6 text-xs text-[#7E7468]">
+          <div className="flex flex-wrap items-center justify-center gap-y-2.5 gap-x-6 text-xs text-[#7E7468]">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-[#2E5844]" />
+              <CheckCircle2 className="w-4 h-4 text-[#2E5844] shrink-0" />
               <span>{t.hero.badges.digitalOnly}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#2E5844]" />
+              <Clock className="w-4 h-4 text-[#2E5844] shrink-0" />
               <span>{t.hero.badges.noStress}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-[#2E5844]" />
+              <ShieldCheck className="w-4 h-4 text-[#2E5844] shrink-0" />
               <span>{t.hero.badges.instantAccess}</span>
             </div>
           </div>
@@ -93,7 +93,7 @@ export const Hero: React.FC<HeroProps> = ({
         <div className="relative max-w-5xl mx-auto">
           {/* Decorative frame */}
           <div className="p-3 sm:p-5 rounded-2xl bg-gradient-to-b from-[#F2E4C6]/40 via-[#FAF7F2] to-[#EAE3D5]/40 border border-[#D8B76E]/40 shadow-xl backdrop-blur-xs">
-            <div className="flex items-center justify-between px-3 py-2.5 mb-3 border-b border-[#EAE3D5] bg-white/70 rounded-xl">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 py-2.5 mb-3 border-b border-[#EAE3D5] bg-white/70 rounded-xl">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#621927]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#C29B48]" />
@@ -104,15 +104,23 @@ export const Hero: React.FC<HeroProps> = ({
               </div>
               <button
                 onClick={handleSecondaryCta}
-                className="text-xs text-[#621927] hover:underline font-medium flex items-center gap-1"
+                className="text-xs text-[#621927] hover:underline font-medium flex items-center gap-1 cursor-pointer min-h-[32px]"
               >
-                <span>Deschide întregul calendar (24 zile)</span>
+                <span>
+                  {language === 'hu'
+                    ? 'Teljes kalendárium megnyitása (24 nap)'
+                    : language === 'de'
+                    ? 'Vollständigen Kalender öffnen (24 Tage)'
+                    : language === 'en'
+                    ? 'Open full calendar (24 days)'
+                    : 'Deschide întregul calendar (24 zile)'}
+                </span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
 
-            {/* Micro 12-door sample preview */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3">
+            {/* Micro 12-door sample preview - 2 columns on mobile for readable text */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
               {previewDays.slice(0, 12).map((day) => (
                 <div
                   key={day.id}
@@ -144,7 +152,13 @@ export const Hero: React.FC<HeroProps> = ({
 
             <div className="mt-3 text-center">
               <p className="text-xs text-[#7E7468]">
-                Apasă pe oricare dintre uși pentru a explora experiența interactivă • Zilele 1–24 te ghidează pas cu pas
+                {language === 'hu'
+                  ? 'Koppints bármelyik ablakra az interaktív rituálé felfedezéséhez • Az 1–24. napok lépésről lépésre vezetnek'
+                  : language === 'de'
+                  ? 'Tippen Sie auf eine Tür, um das Ritual zu entdecken • Tage 1–24 führen Sie Schritt für Schritt'
+                  : language === 'en'
+                  ? 'Tap any door to explore the interactive ritual • Days 1–24 guide you step by step'
+                  : 'Apasă pe oricare dintre uși pentru a explora experiența interactivă • Zilele 1–24 te ghidează pas cu pas'}
               </p>
             </div>
           </div>

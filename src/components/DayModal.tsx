@@ -36,12 +36,10 @@ export const DayModal: React.FC<DayModalProps> = ({
   onUpdateUserNote,
   onOpenPrintable,
 }) => {
-  if (!isOpen || !day) return null;
-
   const isHu = language === 'hu';
   const isEn = language === 'en';
-  const isCompleted = userProgress.completedDays.includes(day.id);
-  const currentNote = userProgress.userNotes[day.id] || '';
+  const isCompleted = day ? userProgress.completedDays.includes(day.id) : false;
+  const currentNote = day ? userProgress.userNotes[day.id] || '' : '';
 
   // Timer state for Day 4 (20-minute reset)
   const [timerSeconds, setTimerSeconds] = useState(20 * 60);
@@ -104,6 +102,8 @@ export const DayModal: React.FC<DayModalProps> = ({
       if (interval) clearInterval(interval);
     };
   }, [timerActive, timerSeconds]);
+
+  if (!isOpen || !day) return null;
 
   const triggerSubtleConfetti = () => {
     try {
@@ -288,7 +288,7 @@ export const DayModal: React.FC<DayModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 text-[#7E7468] hover:text-[#2C0B12] hover:bg-[#F1E9DB] rounded-full transition-colors"
+              className="p-2.5 text-[#7E7468] hover:text-[#2C0B12] hover:bg-[#F1E9DB] rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               aria-label={isHu ? "Ablak bezárása" : "Închide fereastra"}
             >
               <X className="w-5 h-5" />
@@ -988,7 +988,7 @@ export const DayModal: React.FC<DayModalProps> = ({
             {day.printableResource && (
               <button
                 onClick={() => onOpenPrintable(day.printableResource!.id)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#2E5844] text-[#2E5844] hover:bg-[#E6EFEA] text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#2E5844] text-[#2E5844] hover:bg-[#E6EFEA] text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>{isHu ? "Munkalap letöltése (PDF)" : isEn ? "Download Sheet (PDF)" : "Descarcă Fișa (PDF)"}</span>
@@ -997,7 +997,7 @@ export const DayModal: React.FC<DayModalProps> = ({
 
             <button
               onClick={handleCompleteClick}
-              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer ${
+              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer min-h-[44px] ${
                 isCompleted
                   ? 'bg-[#2E5844] text-white hover:bg-[#172F24]'
                   : 'bg-[#621927] hover:bg-[#46121C] text-white'

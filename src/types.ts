@@ -99,6 +99,7 @@ export interface UserProgress {
   unlockedDays: number[];
   isPreviewMode: boolean;
   hasPurchased: boolean;
+  startDate?: string; // ISO date string e.g. "2026-12-01" indicating exact start date
   selectedTier?: PricingTier;
   budgetData: BudgetData;
   giftList: GiftItem[];
@@ -106,10 +107,10 @@ export interface UserProgress {
   checklistStates: Record<string, boolean>;
   userNotes: Record<number, string>;
   emergencyCompletedTasks?: Record<string, boolean>;
-  activeTab?: 'landing' | 'calendar' | 'downloads' | 'printables' | 'emergency' | 'gift-helper';
+  activeTab?: 'landing' | 'calendar' | 'downloads' | 'printables' | 'emergency' | 'gift-helper' | 'ai-card';
 }
 
-export type SupportedLanguage = 'ro' | 'hu' | 'pl' | 'cz' | 'sk' | 'hr' | 'en';
+export type SupportedLanguage = 'hu' | 'en' | 'de' | 'ro' | 'pl' | 'cz' | 'sk';
 
 export interface Milestone {
   days: number;

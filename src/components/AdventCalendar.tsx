@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Sparkles, Calendar, Award, CheckCircle2, Lock, Unlock, Eye, Filter, ArrowLeft } from 'lucide-react';
-import { SupportedLanguage, DayData, PhaseId, UserProgress } from '../types';
+import { Sparkles, Calendar, Award, CheckCircle2, Lock, Unlock, Eye, Filter, ArrowLeft, Clock, RefreshCw, CalendarDays, Compass, Star, Crown, ArrowRight } from 'lucide-react';
+import { SupportedLanguage, DayData, PhaseId, UserProgress, PricingTier } from '../types';
 import { getTranslations } from '../data/translations';
 import { AdventDoor } from './AdventDoor';
 import { trackEvent } from '../utils/analytics';
+import { getCalendarDateInfo } from '../utils/calendarDate';
+import { checkFeatureAccess } from '../lib/subscriptionService';
 
 interface AdventCalendarProps {
   language: SupportedLanguage;
@@ -12,6 +14,8 @@ interface AdventCalendarProps {
   onOpenDayModal: (day: DayData) => void;
   onTogglePreviewMode: () => void;
   onBackToLanding: () => void;
+  onUpdateStartDate?: (newStartDate: string) => void;
+  onOpenPaywall?: (day?: DayData) => void;
 }
 
 export const AdventCalendar: React.FC<AdventCalendarProps> = ({
@@ -21,10 +25,17 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
   onOpenDayModal,
   onTogglePreviewMode,
   onBackToLanding,
+  onUpdateStartDate,
+  onOpenPaywall,
 }) => {
   const t = getTranslations(language);
   const [selectedPhase, setSelectedPhase] = useState<PhaseId | 0>(0);
+  const isHu = language === 'hu';
 
+  const userTier: PricingTier = userProgress.selectedTier || (userProgress.hasPurchased ? 'premium' : 'free');
+
+  // Date calculation based on actual start date and today's date
+  const dateInfo = getCalendarDateInfo(userProgress.startDate, language);
   const completedCount = userProgress.completedDays.length;
   const progressPercent = Math.round((completedCount / 24) * 100);
 
@@ -41,16 +52,21 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
 
   const currentMilestone = getActiveMilestone();
 
-  // Determine which doors are unlocked:
-  // In preview mode: ALL 24 days are unlocked.
-  // In normal mode: check unlockedDays array or day.id <= simulated day
+  // Tier gating logic:
+  // If user is on Free (and not preview mode), days other than 1 and 4 are tier-locked!
+  const isDoorTierLocked = (dayId: number) => {
+    if (userProgress.isPreviewMode) return false;
+    if (userTier === 'premium' || userTier === 'standard') return false;
+    const access = checkFeatureAccess('day', userTier, dayId);
+    return !access.allowed;
+  };
+
   const isDayUnlocked = (dayId: number) => {
     if (userProgress.isPreviewMode) return true;
-    if (userProgress.hasPurchased) {
-      // In purchased mode, if user opened days or today is in December
-      return userProgress.unlockedDays.includes(dayId) || dayId <= 1; // At least Day 1 is always ready
+    if (userProgress.hasPurchased || userTier === 'standard' || userTier === 'premium') {
+      return userProgress.unlockedDays.includes(dayId) || dayId <= dateInfo.currentDayNumber;
     }
-    return userProgress.unlockedDays.includes(dayId) || dayId === 1;
+    return dayId === 1 || dayId === 4;
   };
 
   const filteredDays = selectedPhase === 0
@@ -58,49 +74,123 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
     : days.filter((d) => d.phase === selectedPhase);
 
   const handleDoorClick = (day: DayData) => {
+    if (isDoorTierLocked(day.id)) {
+      if (onOpenPaywall) {
+        onOpenPaywall(day);
+      }
+      return;
+    }
+
     trackEvent('advent_day_open', { dayId: day.id, title: day.title });
     onOpenDayModal(day);
   };
 
   return (
     <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      {/* Top Breadcrumb / Return */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+      {/* Top Breadcrumb & User Tier Status Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <button
           onClick={onBackToLanding}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#7E7468] hover:text-[#621927] transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#7E7468] hover:text-[#621927] transition-colors cursor-pointer min-h-[40px]"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{t.nav.backToHome}</span>
         </button>
 
-        {/* Creator Preview Mode Banner & Toggle */}
-        <div className="flex items-center gap-2.5">
+        {/* Start Date & Preview Mode Toggle */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#EAE3D5] text-xs text-[#5E574D] shadow-xs">
-            <span className={`w-2 h-2 rounded-full ${userProgress.isPreviewMode ? 'bg-[#2E5844]' : 'bg-[#A8A096]'}`} />
-            <span className="font-medium">
-              {userProgress.isPreviewMode ? "Mod Creator: Toate 24 de uși deblocate" : "Mod Calendar: Deblocare zilnică"}
-            </span>
+            <CalendarDays className="w-3.5 h-3.5 text-[#C29B48]" />
+            <span className="text-[#8E867B]">{isHu ? "Kezdés:" : "Start:"}</span>
+            <span className="font-semibold text-[#2C0B12]">{dateInfo.startDateFormatted}</span>
           </div>
 
           <button
             onClick={onTogglePreviewMode}
-            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all cursor-pointer ${
+            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all cursor-pointer min-h-[36px] ${
               userProgress.isPreviewMode
                 ? 'bg-[#2E5844] text-white border-[#2E5844]'
-                : 'bg-[#621927] text-white border-[#621927] hover:bg-[#46121C]'
+                : 'bg-white text-[#621927] border-[#EAE3D5] hover:border-[#621927]'
             }`}
+            title={userProgress.isPreviewMode ? "Előnézeti mód: minden nap azonnal megtekinthető" : "Normál mód: zárolások és rituálé ritmus"}
           >
-            {userProgress.isPreviewMode ? "Comută la modul normal" : "Deblochează toate cele 24 zile"}
+            {userProgress.isPreviewMode ? "✓ Előnézet bekapcsolva" : "Előnézet bekapcsolása"}
           </button>
         </div>
       </div>
 
+      {/* Customer Tier Notification Bar */}
+      <div className="mb-8">
+        {userTier === 'free' && !userProgress.isPreviewMode && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FAF7F2] via-white to-[#F7EAEF] border border-[#C29B48]/50 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#621927] text-[#D8B76E] flex items-center justify-center shrink-0">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-[#2C0B12] text-sm">
+                  {isHu ? 'Ingyenes Csomag: 1. és 4. nap megnyitva próbaként' : 'Free Preview: Day 1 & 4 available'}
+                </p>
+                <p className="text-[#7E7468]">
+                  {isHu 
+                    ? 'A 24 nap teljes élményéhez és a nyomtatható tervezőkhöz válaszd a Standard vagy Prémium csomagot!' 
+                    : 'Unlock all 24 days and printable planners with Standard or Premium!'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onOpenPaywall && onOpenPaywall()}
+              className="bg-[#621927] hover:bg-[#46121C] text-white px-4 py-2 rounded-xl font-bold tracking-wide transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#D8B76E]" />
+              <span>{isHu ? 'Csomag feloldása (€9.90-től)' : 'Unlock Full Access'}</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#D8B76E]" />
+            </button>
+          </div>
+        )}
+
+        {userTier === 'standard' && (
+          <div className="p-3.5 rounded-2xl bg-[#E6EFEA] border border-[#2E5844]/30 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#2E5844]">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-[#2E5844] shrink-0" />
+              <span className="font-semibold text-sm">
+                {isHu ? 'Standard csomag aktív ✓ Mind a 24 nap elérhető!' : 'Standard Plan Active ✓ All 24 days unlocked!'}
+              </span>
+            </div>
+
+            <button
+              onClick={() => onOpenPaywall && onOpenPaywall()}
+              className="text-xs font-bold text-[#621927] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isHu ? 'Bővíts Prémiumra a Vészhelyzet Módhoz (+€5)' : 'Upgrade to Premium for Emergency Mode (+€5)'}</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        {userTier === 'premium' && (
+          <div className="p-3 rounded-2xl bg-[#FAF7F2] border border-[#C29B48]/50 shadow-xs flex items-center justify-between text-xs text-[#621927]">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-[#C29B48]" />
+              <span className="font-bold">
+                {isHu ? 'Prémium Licenc Aktív ★ Minden funkció és letöltés korlátlanul elérhető' : 'Premium Lifetime Active ★ All features & downloads unlocked'}
+              </span>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#621927] text-[#D8B76E] text-[10px] font-bold uppercase tracking-wider">
+              VIP ELÉRÉS
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Calendar Header & Title */}
       <div className="text-center max-w-3xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FAF7F2] border border-[#C29B48]/40 text-xs font-semibold text-[#621927] mb-3">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FAF7F2] border border-[#C29B48]/40 text-xs font-semibold text-[#621927] mb-3 shadow-xs">
           <Calendar className="w-3.5 h-3.5 text-[#C29B48]" />
-          <span>Christmas Reset 2026 • 1–24 Decembrie</span>
+          <span>
+            {isHu ? `Kezdve: ${dateInfo.startDateFormatted} • Ma a(z) ${dateInfo.currentDayNumber}. nap aktív` : `Started: ${dateInfo.startDateFormatted}`}
+          </span>
         </div>
         <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-[#2C0B12] mb-3">
           {t.calendar.title}
@@ -121,7 +211,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
               </span>
             </div>
             <p className="text-xs text-[#7E7468] mt-0.5">
-              Fiecare zi bifată aduce mai multă liniște în casa ta.
+              {isHu ? `Napra pontos haladás a kezdés óta • ${dateInfo.daysRemainingToChristmas} nap van még Szentestéig.` : `${dateInfo.daysRemainingToChristmas} days until Christmas.`}
             </p>
           </div>
 
@@ -130,7 +220,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
               {completedCount}
             </span>
             <span className="text-sm font-medium text-[#7E7468] ml-1">
-              / 24 {t.gamification.completedLabel}
+              / 24 {t.gamification.completedLabel} ({progressPercent}%)
             </span>
           </div>
         </div>
@@ -138,7 +228,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
         {/* Visual Progress Bar */}
         <div className="w-full bg-[#FAF7F2] h-3 rounded-full overflow-hidden border border-[#EAE3D5] p-0.5 mb-3">
           <div
-            className="bg-gradient-to-r from-[#C29B48] via-[#7E2232] to-[#2E5844] h-full rounded-full transition-all duration-500"
+            className="bg-gradient-to-r from-[#C29B48] via-[#7E2232] to-[#2E5844] h-full rounded-full transition-all duration-500 shadow-xs"
             style={{ width: `${Math.max(progressPercent, 4)}%` }}
           />
         </div>
@@ -156,17 +246,21 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#F1E9DB] text-xs text-[#7E7468]">
-            <span>Deschide Ușa 1 pentru a începe călătoria ta de 24 de zile.</span>
-            <span className="text-[11px] text-[#C29B48] font-medium">Primul pas: Bugetul</span>
+            <span>
+              {isHu ? "Nyisd ki a mai ablakot a napi lépéshez és a lelki nyugalomhoz." : "Open today's door for your ritual."}
+            </span>
+            <span className="text-[11px] text-[#C29B48] font-medium">
+              {isHu ? `Mai fókusz: ${dateInfo.currentDayNumber}. nap` : `Focus: Day ${dateInfo.currentDayNumber}`}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Phase Filter Tabs */}
-      <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8 overflow-x-auto pb-2 no-scrollbar">
+      {/* Phase Filter Tabs - Edge-to-edge smooth touch scrolling */}
+      <div className="flex items-center justify-start sm:justify-center gap-1 sm:gap-2 mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
         <button
           onClick={() => setSelectedPhase(0)}
-          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center ${
             selectedPhase === 0
               ? 'bg-[#621927] text-white shadow-xs'
               : 'bg-white text-[#5E574D] border border-[#EAE3D5] hover:bg-[#FAF7F2]'
@@ -176,7 +270,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
         </button>
         <button
           onClick={() => setSelectedPhase(1)}
-          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center ${
             selectedPhase === 1
               ? 'bg-[#621927] text-white shadow-xs'
               : 'bg-white text-[#5E574D] border border-[#EAE3D5] hover:bg-[#FAF7F2]'
@@ -186,7 +280,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
         </button>
         <button
           onClick={() => setSelectedPhase(2)}
-          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center ${
             selectedPhase === 2
               ? 'bg-[#2E5844] text-white shadow-xs'
               : 'bg-white text-[#5E574D] border border-[#EAE3D5] hover:bg-[#FAF7F2]'
@@ -196,7 +290,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
         </button>
         <button
           onClick={() => setSelectedPhase(3)}
-          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center ${
             selectedPhase === 3
               ? 'bg-[#C29B48] text-[#2C0B12] font-semibold shadow-xs'
               : 'bg-white text-[#5E574D] border border-[#EAE3D5] hover:bg-[#FAF7F2]'
@@ -206,7 +300,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
         </button>
         <button
           onClick={() => setSelectedPhase(4)}
-          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center ${
             selectedPhase === 4
               ? 'bg-[#7E2232] text-white shadow-xs'
               : 'bg-white text-[#5E574D] border border-[#EAE3D5] hover:bg-[#FAF7F2]'
@@ -219,9 +313,10 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
       {/* 24 Doors Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 sm:gap-4">
         {filteredDays.map((day) => {
+          const tierLocked = isDoorTierLocked(day.id);
           const unlocked = isDayUnlocked(day.id);
           const completed = userProgress.completedDays.includes(day.id);
-          const isToday = day.id === 1; // Default to Day 1 as active today focus
+          const isToday = day.id === dateInfo.currentDayNumber;
 
           return (
             <AdventDoor
@@ -231,7 +326,9 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
               isUnlocked={unlocked}
               isCompleted={completed}
               isToday={isToday}
+              isTierLocked={tierLocked}
               onClick={() => handleDoorClick(day)}
+              onOpenPaywall={() => onOpenPaywall && onOpenPaywall(day)}
             />
           );
         })}
@@ -240,15 +337,10 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
       {/* Quick Helper Notice */}
       <div className="mt-12 text-center text-xs text-[#7E7468] max-w-xl mx-auto space-y-2">
         <p>
-          💡 <strong>{language === 'hu' ? "Napi rituálé tipp:" : "Sfat de ritual:"}</strong>{" "}
-          {language === 'hu'
-            ? "Válassz ki egy fix időpontot minden nap (például a reggeli kávé mellett vagy este lefekvés előtt) a napi adventi ablak kinyitására."
-            : "Păstrează aceeași oră în fiecare zi (de exemplu, dimineața la cafea sau seara înainte de culcare) pentru a deschide ușa din calendar."}
-        </p>
-        <p>
-          {language === 'hu'
-            ? "A haladásod automatikusan mentődik ezen a készüléken. Nem veszítesz el egyetlen listát vagy feljegyzést sem."
-            : "Progresul tău este memorat automat pe acest dispozitiv. Nu vei pierde nicio listă sau bifă."}
+          💡 <strong>{isHu ? "Napi rituálé tipp:" : "Tip:"}</strong>{" "}
+          {isHu 
+            ? "Minden nap egyetlen apró lépést tegyél meg. Nem kell sietned: a rendszer automatikusan szinkronizálja és menti a haladásod a felhőbeli adatbázisban." 
+            : "Take one step each day for a peaceful Christmas."}
         </p>
       </div>
     </div>

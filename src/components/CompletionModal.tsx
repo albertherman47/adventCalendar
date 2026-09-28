@@ -16,17 +16,22 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   language,
   onNavigateToPrintables,
 }) => {
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen) return null;
 
-  const [copied, setCopied] = useState(false);
   const isHu = language === 'hu';
+  const isDe = language === 'de';
+  const isRo = language === 'ro';
   const isEn = language === 'en';
 
   const shareText = isHu
     ? "Sikeresen végigcsináltam a Christmas Reset 2026 programot! 24 / 24 nap teljesítve egy nyugodt, szeretetteljes Karácsonyért. ✨🎄"
-    : isEn
-    ? "I completed my Christmas Reset 2026. 24 / 24 days completed for a calm, joyful Christmas! ✨🎄"
-    : "Am finalizat cu succes Christmas Reset 2026! 24 / 24 zile completate pentru un Crăciun calm, organizat și plin de suflet. ✨🎄";
+    : isDe
+    ? "Ich habe den Christmas Reset 2026 erfolgreich abgeschlossen! 24 / 24 Tage für ein ruhiges, stressfreies Weihnachtsfest. ✨🎄"
+    : isRo
+    ? "Am finalizat cu succes Christmas Reset 2026! 24 / 24 zile completate pentru un Crăciun calm, organizat și plin de suflet. ✨🎄"
+    : "I completed my Christmas Reset 2026. 24 / 24 days completed for a calm, joyful Christmas! ✨🎄";
 
   const handleCopyShare = () => {
     try {
@@ -53,19 +58,21 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/15 border border-[#D8B76E]/40 text-[#D8B76E] text-xs font-semibold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{isHu ? "Küldetés Teljesítve" : isEn ? "Mission Accomplished" : "Misiune Îndeplinită"}</span>
+            <span>{isHu ? "Küldetés Teljesítve" : isDe ? "Mission Erfüllt" : isRo ? "Misiune Îndeplinită" : "Mission Accomplished"}</span>
           </div>
 
           <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
             {isHu
               ? "A karácsonyi felkészülésed befejeződött."
-              : isEn
-              ? "Your Christmas Reset is complete."
-              : "Crăciunul tău este complet resetat."}
+              : isDe
+              ? "Ihre Weihnachtsvorbereitung ist vollendet."
+              : isRo
+              ? "Crăciunul tău este complet resetat."
+              : "Your Christmas Reset is complete."}
           </h2>
 
           <div className="mt-3 inline-block px-4 py-1.5 rounded-full bg-white/20 text-sm sm:text-base font-bold text-[#FDFBF7] border border-white/30 shadow-xs">
-            ✨ 24 / 24 {isHu ? "nap teljesítve" : isEn ? "days completed" : "zile completate"}
+            ✨ 24 / 24 {isHu ? "nap teljesítve" : isDe ? "Tage abgeschlossen" : isRo ? "zile completate" : "days completed"}
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 import { DayData, SupportedLanguage } from '../types';
 import { ADVENT_DAYS_HU } from './adventDaysHu';
+import { ADVENT_DAYS_EN } from './adventDaysEn';
+import { ADVENT_DAYS_DE } from './adventDaysDe';
 
 export const ADVENT_DAYS: DayData[] = [
   // ================= PHASE 1: ORGANIZE (DEC 1 - 6) =================
@@ -639,5 +641,15 @@ export function getLocalizedAdventDays(lang: SupportedLanguage): DayData[] {
   if (lang === 'hu') {
     return ADVENT_DAYS_HU;
   }
-  return ADVENT_DAYS;
+  if (lang === 'de') {
+    return ADVENT_DAYS_DE;
+  }
+  if (lang === 'en') {
+    return ADVENT_DAYS_EN;
+  }
+  if (lang === 'ro') {
+    return ADVENT_DAYS;
+  }
+  // For pl, cz, sk, or any other, use English as multinational fallback
+  return ADVENT_DAYS_EN;
 }

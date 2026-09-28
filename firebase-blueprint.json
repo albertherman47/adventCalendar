@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with their subscription tier and progress state.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The unique identifier of the user (Auth UID or generated customer key).",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer contact email.",
+          "maxLength": 256
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the customer.",
+          "maxLength": 100
+        },
+        "tier": {
+          "type": "string",
+          "description": "Current subscription or purchase tier.",
+          "enum": ["free", "standard", "premium"]
+        },
+        "hasPurchased": {
+          "type": "boolean",
+          "description": "Whether the user has made an active purchase."
+        },
+        "purchasedAt": {
+          "type": "string",
+          "description": "Timestamp ISO string of the purchase.",
+          "maxLength": 64
+        },
+        "progressData": {
+          "type": "string",
+          "description": "JSON serialized user progress including completed days, budget, and gifts.",
+          "maxLength": 100000
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp ISO string.",
+          "maxLength": 64
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp ISO string.",
+          "maxLength": 64
+        }
+      },
+      "required": ["userId", "email", "tier", "hasPurchased"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Subscription and purchase transaction record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique purchase/subscription ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "The user ID associated with this subscription.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer email used at checkout.",
+          "maxLength": 256
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Customer name provided at checkout.",
+          "maxLength": 120
+        },
+        "tier": {
+          "type": "string",
+          "description": "Purchased tier level.",
+          "enum": ["standard", "premium"]
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid in EUR."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code e.g. EUR.",
+          "maxLength": 10
+        },
+        "isGift": {
+          "type": "boolean",
+          "description": "Whether this subscription was bought as a gift."
+        },
+        "giftRecipientEmail": {
+          "type": "string",
+          "description": "Optional email of the gift recipient.",
+          "maxLength": 256
+        },
+        "status": {
+          "type": "string",
+          "description": "Payment status.",
+          "enum": ["active", "completed", "trial"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp ISO string.",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "userId", "email", "tier", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with tier status and progress."
+    },
+    "/subscriptions/{subscriptionId}": {
+      "schema": "Subscription",
+      "description": "Orders and subscription transactions for the application."
+    }
+  }
+}
