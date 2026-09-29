@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Check, ArrowRight, ShieldCheck, Heart, DownloadCloud, Star, KeyRound, Clock, Flame } from 'lucide-react';
+import { Sparkles, Check, ArrowRight, Heart, DownloadCloud, Star, KeyRound, Clock, Flame } from 'lucide-react';
 import { SupportedLanguage, PricingTier } from '../types';
 import { getTranslations } from '../data/translations';
 import { trackEvent } from '../utils/analytics';
@@ -143,13 +143,10 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
           })}
         </div>
 
-        {/* Reassurance Banner & Restore link */}
+        {/* Payment status and account link */}
         <div className="mt-12 text-center text-xs text-[#7E7468] max-w-xl mx-auto space-y-2">
-          <p className="flex items-center justify-center gap-1.5 font-medium text-[#2E5844]">
-            <ShieldCheck className="w-4 h-4" />
-            <span>{t.pricing.guarantee}</span>
-          </p>
-          <p>{t.pricing.digitalNotice}</p>
+          <p>{isHu ? 'Az online fizetés jelenleg nem aktív; csomagválasztáskor nem történik terhelés.' : 'Online payments are not enabled; choosing a plan will not charge you.'}</p>
+          <p>{isHu ? 'A bejelentkezés a haladásod eszközök közti szinkronizálását teszi lehetővé.' : 'Sign in to sync progress across your devices.'}</p>
 
           {onOpenRestoreModal && (
             <div className="pt-2">
@@ -159,7 +156,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#621927] hover:underline cursor-pointer"
               >
                 <KeyRound className="w-3.5 h-3.5 text-[#C29B48]" />
-                <span>{isHu ? 'Már megvásároltad? Kattints ide az elérés visszaállításához!' : 'Already purchased? Restore your access here'}</span>
+                <span>{isHu ? 'Bejelentkezés vagy fiók létrehozása' : 'Sign in or create an account'}</span>
               </button>
             </div>
           )}

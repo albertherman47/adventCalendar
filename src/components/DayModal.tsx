@@ -230,7 +230,7 @@ export const DayModal: React.FC<DayModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className={`relative w-full max-w-3xl bg-[#FCFAF7] rounded-2xl sm:rounded-3xl border transition-all duration-500 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
         showCelebration
           ? 'border-[#C29B48] ring-4 ring-[#C29B48]/30 shadow-[0_0_50px_rgba(194,155,72,0.35)]'

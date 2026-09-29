@@ -84,6 +84,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const obstacles = getObstaclesData(language);
   const finalCta = getFinalCtaData(language);
 
+  // Advent content is loaded asynchronously from the server. The first render
+  // can happen before it arrives, so avoid dereferencing a missing day here.
+  if (!activeDayData) {
+    return (
+      <div className="flex min-h-[50vh] w-full items-center justify-center px-6 text-center text-on-surface-variant">
+        {language === 'hu' ? 'Az adventi tartalom betöltése…' : language === 'ro' ? 'Se încarcă materialele adventului…' : 'Loading advent content…'}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full">
       {/* Top Subtle Botanical Border Band */}
@@ -894,17 +904,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             })}
           </div>
 
-          {/* Ethical Note & Restore Button */}
+          {/* Plan and account note */}
           <div className="mt-12 text-center text-on-surface-variant font-body-sm text-body-sm flex flex-col items-center justify-center gap-3">
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-secondary">lock</span>
-                <span>100% {language === 'hu' ? 'Biztonságos fizetés' : 'Secure payment'}</span>
-              </span>
+              <span>{language === 'hu' ? 'Az online fizetés jelenleg nem aktív.' : 'Online payments are not available yet.'}</span>
               <span className="text-outline-variant">•</span>
-              <span>{t.pricing.guarantee}</span>
-              <span className="text-outline-variant">•</span>
-              <span>{t.pricing.digitalNotice}</span>
+              <span>{language === 'hu' ? 'A fiókoddal az eszközeid között szinkronizálhatod a haladásodat.' : 'Sign in to sync progress across your devices.'}</span>
             </div>
 
             {onOpenRestoreModal && (
@@ -915,7 +920,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px] text-tertiary">key</span>
-                  <span>{language === 'hu' ? 'Már fizettél? Kattints ide a hozzáférésed visszaállításához!' : 'Already purchased? Restore your access here'}</span>
+                  <span>{language === 'hu' ? 'Bejelentkezés vagy fiók létrehozása' : 'Sign in or create an account'}</span>
                 </button>
               </div>
             )}

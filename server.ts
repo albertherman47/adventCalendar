@@ -1,19 +1,89 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { getLocalizedAdventDays } from "./src/data/adventDays";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3001;
 
 app.use(express.json());
+
+type ManagedTier = 'free' | 'standard' | 'premium';
+
+function configuredAdminEmails(): Set<string> {
+  return new Set((process.env.ADMIN_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean));
+}
+
+async function getAdminContext(req: express.Request) {
+  const authorization = req.header('authorization') || '';
+  const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!accessToken) return { response: { status: 401, message: 'Jelentkezz be az adminfelület használatához.' } as const };
+  const url = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !publishableKey || !serviceRoleKey || configuredAdminEmails().size === 0) {
+    return { response: { status: 503, message: 'Az adminfelület szerveroldali beállítása hiányos.' } as const };
+  }
+  const { createClient } = await import('@supabase/supabase-js');
+  const authClient = createClient(url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await authClient.auth.getUser(accessToken);
+  if (error || !data.user) return { response: { status: 401, message: 'A munkamenet lejárt. Jelentkezz be újra.' } as const };
+  const email = data.user.email?.toLowerCase();
+  if (!email || !configuredAdminEmails().has(email)) {
+    return { response: { status: 403, message: 'Ehhez az oldalhoz nincs admin jogosultságod.' } as const };
+  }
+  const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  return { user: data.user, adminClient };
+}
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const context = await getAdminContext(req);
+    if ('response' in context && context.response) return res.status(context.response.status).json({ message: context.response.message });
+    const perPage = 100;
+    const users: Array<{ id: string; email?: string; created_at: string }> = [];
+    for (let page = 1; page <= 100; page += 1) {
+      const { data, error } = await context.adminClient.auth.admin.listUsers({ page, perPage });
+      if (error) throw error;
+      users.push(...data.users.map(({ id, email, created_at }) => ({ id, email, created_at })));
+      if (data.users.length < perPage) break;
+    }
+    const { data: entitlements, error } = await context.adminClient.from('account_entitlements').select('user_id, tier');
+    if (error) throw error;
+    const tierByUser = new Map((entitlements || []).map((row: { user_id: string; tier: ManagedTier }) => [row.user_id, row.tier]));
+    return res.json({ users: users.map((user) => ({ ...user, tier: tierByUser.get(user.id) || 'free' })) });
+  } catch (error) {
+    console.error('Admin user list failed:', error);
+    return res.status(500).json({ message: 'A felhasználók betöltése nem sikerült.' });
+  }
+});
+
+app.put('/api/admin/users/:userId/entitlement', async (req, res) => {
+  try {
+    const context = await getAdminContext(req);
+    if ('response' in context && context.response) return res.status(context.response.status).json({ message: context.response.message });
+    const { userId } = req.params;
+    const { tier } = req.body as { tier?: ManagedTier };
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+      return res.status(400).json({ message: 'Érvénytelen felhasználó-azonosító.' });
+    }
+    if (!tier || !['free', 'standard', 'premium'].includes(tier)) {
+      return res.status(400).json({ message: 'Érvénytelen előfizetési csomag.' });
+    }
+    const { data: target, error: targetError } = await context.adminClient.auth.admin.getUserById(userId);
+    if (targetError || !target.user) return res.status(404).json({ message: 'A felhasználó nem található.' });
+    const { error } = await context.adminClient.from('account_entitlements').upsert({ user_id: userId, tier, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+    return res.json({ success: true, userId, tier });
+  } catch (error) {
+    console.error('Admin entitlement update failed:', error);
+    return res.status(500).json({ message: 'A csomag módosítása nem sikerült.' });
+  }
+});
 
 // API health endpoint
 app.get("/api/health", (_req, res) => {
@@ -47,57 +117,15 @@ app.get("/api/supabase/test", async (_req, res) => {
 
     // 2. Check Database tables connectivity
     const dbStart = Date.now();
-    const subQuery = await supabase.from("subscriptions").select("id").limit(1);
-    const progQuery = await supabase.from("user_progress").select("user_id").limit(1);
+    const entitlementQuery = await supabase.from("account_entitlements").select("user_id").limit(1);
+    const progressQuery = await supabase.from("account_progress").select("user_id").limit(1);
     const dbLatency = Date.now() - dbStart;
 
     const totalLatency = Date.now() - startTime;
 
-    const subscriptionsTableExists = !subQuery.error || subQuery.error.code !== "PGRST205";
-    const userProgressTableExists = !progQuery.error || progQuery.error.code !== "PGRST205";
-
-    const sqlSchema = `-- Supabase PostgreSQL Adatbázis Táblák a Christmas Reset 2026 projekthez
--- Másold be a Supabase Dashboard > SQL Editor felületre és kattints a 'Run' gombra:
-
-CREATE TABLE IF NOT EXISTS public.subscriptions (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  email TEXT NOT NULL,
-  customer_name TEXT,
-  tier TEXT NOT NULL CHECK (tier IN ('standard', 'premium')),
-  amount NUMERIC DEFAULT 0,
-  currency TEXT DEFAULT 'EUR',
-  is_gift BOOLEAN DEFAULT FALSE,
-  gift_recipient_email TEXT,
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON public.subscriptions(email);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON public.subscriptions(user_id);
-
-CREATE TABLE IF NOT EXISTS public.user_progress (
-  user_id TEXT PRIMARY KEY,
-  selected_tier TEXT DEFAULT 'free',
-  has_purchased BOOLEAN DEFAULT FALSE,
-  completed_days INT[] DEFAULT '{}',
-  unlocked_days INT[] DEFAULT '{}',
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Row Level Security (RLS) engedélyezése biztonságos nyilvános olvasáshoz és íráshoz
-ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public insert to subscriptions" ON public.subscriptions
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public select on subscriptions by email" ON public.subscriptions
-  FOR SELECT USING (true);
-
-CREATE POLICY "Allow public all on user_progress" ON public.user_progress
-  FOR ALL USING (true) WITH CHECK (true);
-`;
+    const accountEntitlementsTableExists = !entitlementQuery.error || entitlementQuery.error.code !== "PGRST205";
+    const accountProgressTableExists = !progressQuery.error || progressQuery.error.code !== "PGRST205";
+    const migrationInstructions = "Apply supabase/migrations/202609280001_secure_accounts_and_progress.sql";
 
     return res.json({
       success: true,
@@ -112,21 +140,25 @@ CREATE POLICY "Allow public all on user_progress" ON public.user_progress
       database: {
         reachable: true,
         latencyMs: dbLatency,
-        subscriptionsTable: {
-          exists: subscriptionsTableExists,
-          status: subscriptionsTableExists ? "Elérhető és kész" : "A tábla még nincs létrehozva (PGRST205)",
-          details: subQuery.error ? subQuery.error.message : "Rendben",
+        accountEntitlementsTable: {
+          exists: accountEntitlementsTableExists,
+          status: accountEntitlementsTableExists ? "Elérhető és kész" : "A tábla még nincs létrehozva (PGRST205)",
+          details: entitlementQuery.error?.code === "42501"
+            ? "A tábla létezik; az anon szerepkör olvasása az RLS miatt tiltott."
+            : entitlementQuery.error ? entitlementQuery.error.message : "Rendben",
         },
-        userProgressTable: {
-          exists: userProgressTableExists,
-          status: userProgressTableExists ? "Elérhető és kész" : "A tábla még nincs létrehozva (PGRST205)",
-          details: progQuery.error ? progQuery.error.message : "Rendben",
+        accountProgressTable: {
+          exists: accountProgressTableExists,
+          status: accountProgressTableExists ? "Elérhető és kész" : "A tábla még nincs létrehozva (PGRST205)",
+          details: progressQuery.error?.code === "42501"
+            ? "A tábla létezik; az anon szerepkör olvasása az RLS miatt tiltott."
+            : progressQuery.error ? progressQuery.error.message : "Rendben",
         },
       },
-      sqlSchema,
-      summary: subscriptionsTableExists && userProgressTableExists
-        ? "Minden adatbázistábla aktív és működik!"
-        : "A Supabase kapcsolat működik és válaszol! A PostgreSQL táblák létrehozásához futtasd le a megadott SQL szkriptet a Supabase SQL Editorban.",
+      sqlSchema: migrationInstructions,
+      summary: accountEntitlementsTableExists && accountProgressTableExists
+        ? "A Supabase fiók- és haladástáblák elérhetők."
+        : "A Supabase elérhető, de a fiók- és haladástáblákhoz futtasd le a projekt migrációját.",
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -144,6 +176,60 @@ app.get("/api/gemini/status", (_req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const hasKey = Boolean(apiKey && apiKey.trim() !== "" && apiKey !== "MY_GEMINI_API_KEY");
   res.json({ hasKey });
+});
+
+// Advent content stays on the server. Guests receive the free sample doors;
+// authenticated plans are checked against the account's database entitlement.
+app.get("/api/advent-days", async (req, res) => {
+  const languageParam = String(req.query.language || 'en').toLowerCase();
+  const language = ['hu', 'en', 'de', 'ro', 'pl', 'cz', 'sk'].includes(languageParam) ? languageParam : 'en';
+  const authorization = req.header('authorization') || '';
+  const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  let tier = 'free';
+
+  if (authorization && !accessToken) {
+    return res.status(401).json({ message: 'Érvénytelen munkamenet.' });
+  }
+
+  if (accessToken) {
+    try {
+      const supabaseUrl = process.env.SUPABASE_URL || 'https://clapfpjmglvlyyoklnpe.supabase.co';
+      const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || 'sb_publishable_CZDZq1S9h8RSKVM6Vcq1FA_lD-qXjjA';
+      const { createClient } = await import('@supabase/supabase-js');
+      const accountClient = createClient(supabaseUrl, publishableKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      });
+      const { data: authData, error: authError } = await accountClient.auth.getUser(accessToken);
+      if (authError || !authData.user) return res.status(401).json({ message: 'Jelentkezz be újra.' });
+
+      const { data: entitlement, error: entitlementError } = await accountClient
+        .from('account_entitlements')
+        .select('tier')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
+      if (entitlementError) {
+        console.error('Unable to verify account plan:', entitlementError.message);
+        return res.status(503).json({ message: 'A csomagjogosultság most nem ellenőrizhető.' });
+      }
+      if (entitlement?.tier === 'standard' || entitlement?.tier === 'premium') tier = entitlement.tier;
+    } catch (error) {
+      console.error('Advent content access check failed:', error);
+      return res.status(503).json({ message: 'A hozzáférés most nem ellenőrizhető.' });
+    }
+  }
+
+  const localizedDays = getLocalizedAdventDays(language as 'hu' | 'en' | 'de' | 'ro' | 'pl' | 'cz' | 'sk');
+  const days = tier === 'free'
+    ? localizedDays.map((day) => day.id === 1 || day.id === 4 ? day : ({
+      ...day,
+      content: { headline: '', description: '', actionSteps: [] },
+      ritualTip: undefined,
+      reflectionQuestion: undefined,
+    }))
+    : localizedDays;
+  res.setHeader('Cache-Control', 'private, no-store');
+  return res.json({ days, tier });
 });
 
 function getFallbackCard(recipient?: string, tone?: string, sender?: string, language?: string) {
@@ -190,6 +276,41 @@ function getFallbackCard(recipient?: string, tone?: string, sender?: string, lan
 app.post("/api/generate-card", async (req, res) => {
   try {
     const { recipient, tone, customDetails, sender, language = 'hu' } = req.body;
+
+    const authorization = req.header('authorization') || '';
+    const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    if (!accessToken) {
+      return res.status(401).json({ message: 'Bejelentkezés szükséges.' });
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://clapfpjmglvlyyoklnpe.supabase.co';
+    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || 'sb_publishable_CZDZq1S9h8RSKVM6Vcq1FA_lD-qXjjA';
+    const { createClient } = await import('@supabase/supabase-js');
+    const accountClient = createClient(supabaseUrl, publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+    const { data: authData, error: authError } = await accountClient.auth.getUser(accessToken);
+    if (authError || !authData.user) {
+      return res.status(401).json({ message: 'A munkamenet lejárt. Jelentkezz be újra.' });
+    }
+
+    const { data: entitlement, error: entitlementError } = await accountClient
+      .from('account_entitlements')
+      .select('tier')
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+    if (entitlementError) {
+      console.error('Unable to verify account plan:', entitlementError.message);
+      return res.status(503).json({ message: 'A csomagjogosultság most nem ellenőrizhető.' });
+    }
+    if (entitlement?.tier !== 'premium') {
+      return res.status(403).json({ message: 'Az AI képeslap készítéshez Premium fiók szükséges.' });
+    }
+
+    if ([recipient, tone, customDetails, sender].some((value) => typeof value === 'string' && value.length > 2000)) {
+      return res.status(400).json({ message: 'A megadott szöveg túl hosszú.' });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey.trim() === "" || apiKey === "MY_GEMINI_API_KEY") {

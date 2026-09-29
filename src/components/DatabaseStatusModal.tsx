@@ -21,12 +21,12 @@ interface TestResult {
   database: {
     reachable: boolean;
     latencyMs: number;
-    subscriptionsTable: {
+    accountEntitlementsTable: {
       exists: boolean;
       status: string;
       details: string;
     };
-    userProgressTable: {
+    accountProgressTable: {
       exists: boolean;
       status: string;
       details: string;
@@ -80,7 +80,7 @@ export const DatabaseStatusModal: React.FC<DatabaseStatusModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#eee7e4] overflow-hidden my-6">
         {/* Header */}
         <div className="px-5 py-4 bg-[#fff8f6] border-b border-[#eee7e4] flex items-center justify-between">
@@ -165,66 +165,66 @@ export const DatabaseStatusModal: React.FC<DatabaseStatusModalProps> = ({
                 {/* subscriptions table */}
                 <div className="p-3 bg-white rounded-xl border border-[#eee7e4] flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
-                    {testResult.database.subscriptionsTable.exists ? (
+                    {testResult.database.accountEntitlementsTable.exists ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     ) : (
                       <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <div className="font-mono text-xs font-bold text-[#2C0B12]">public.subscriptions</div>
+                      <div className="font-mono text-xs font-bold text-[#2C0B12]">public.account_entitlements</div>
                       <div className="text-xs text-[#524345]">
-                        {testResult.database.subscriptionsTable.exists
-                          ? (language === 'hu' ? 'A tábla létezik, vásárlások és előfizetések mentése aktív.' : 'Table exists and active.')
+                        {testResult.database.accountEntitlementsTable.exists
+                          ? (language === 'hu' ? 'A fiókcsomagok jogosultságainak olvasása elérhető.' : 'Account plan entitlements are available.')
                           : (language === 'hu' ? 'A tábla még nincs létrehozva a Supabase projektben.' : 'Table not yet created.')}
                       </div>
                     </div>
                   </div>
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${
-                    testResult.database.subscriptionsTable.exists
+                    testResult.database.accountEntitlementsTable.exists
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {testResult.database.subscriptionsTable.exists ? 'Kész' : 'SQL futtatás szükséges'}
+                    {testResult.database.accountEntitlementsTable.exists ? 'Kész' : 'Migration szükséges'}
                   </span>
                 </div>
 
                 {/* user_progress table */}
                 <div className="p-3 bg-white rounded-xl border border-[#eee7e4] flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
-                    {testResult.database.userProgressTable.exists ? (
+                    {testResult.database.accountProgressTable.exists ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     ) : (
                       <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <div className="font-mono text-xs font-bold text-[#2C0B12]">public.user_progress</div>
+                      <div className="font-mono text-xs font-bold text-[#2C0B12]">public.account_progress</div>
                       <div className="text-xs text-[#524345]">
-                        {testResult.database.userProgressTable.exists
-                          ? (language === 'hu' ? 'A tábla létezik, haladás és feloldott napok szinkronizálása aktív.' : 'Table exists and active.')
+                        {testResult.database.accountProgressTable.exists
+                          ? (language === 'hu' ? 'Fiókonkénti haladásmentés elérhető.' : 'Account progress storage is available.')
                           : (language === 'hu' ? 'A tábla még nincs létrehozva a Supabase projektben.' : 'Table not yet created.')}
                       </div>
                     </div>
                   </div>
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${
-                    testResult.database.userProgressTable.exists
+                    testResult.database.accountProgressTable.exists
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {testResult.database.userProgressTable.exists ? 'Kész' : 'SQL futtatás szükséges'}
+                    {testResult.database.accountProgressTable.exists ? 'Kész' : 'Migration szükséges'}
                   </span>
                 </div>
               </div>
 
               {/* Instructions & Copyable SQL */}
-              {(!testResult.database.subscriptionsTable.exists || !testResult.database.userProgressTable.exists) && (
+              {(!testResult.database.accountEntitlementsTable.exists || !testResult.database.accountProgressTable.exists) && (
                 <div className="mt-4 p-4 rounded-xl bg-[#fff8eb] border border-[#f5dfa6] space-y-3">
                   <div className="flex items-start gap-2 text-amber-900 text-xs">
                     <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold">
                         {language === 'hu'
-                          ? 'A Supabase kapcsolat működik! Már csak a táblákat kell létrehoznod 1 kattintással:'
-                          : 'Supabase connection is working! Just run this SQL once to create the tables:'}
+                          ? 'A fióktáblák még nincsenek telepítve. Futtasd le a projekt biztonságos adatbázis-migrációját:'
+                          : 'Account tables are not installed yet. Apply the secure database migration included in this project:'}
                       </p>
                       <ol className="list-decimal list-inside mt-1 space-y-1 text-amber-800">
                         <li>
@@ -239,8 +239,8 @@ export const DatabaseStatusModal: React.FC<DatabaseStatusModalProps> = ({
                           </a>
                           {language === 'hu' ? ' hivatkozásra.' : ' link.'}
                         </li>
-                        <li>{language === 'hu' ? 'Másold be ezt az SQL kódot (kattints a Másolás gombra):' : 'Copy this SQL schema (click the Copy button):'}</li>
-                        <li>{language === 'hu' ? 'Nyomd meg a "Run" gombot a Supabase felületén.' : 'Press "Run" in your Supabase Dashboard.'}</li>
+                        <li>{language === 'hu' ? 'A fájl: supabase/migrations/202609280001_secure_accounts_and_progress.sql' : 'Migration: supabase/migrations/202609280001_secure_accounts_and_progress.sql'}</li>
+                        <li>{language === 'hu' ? 'Futtasd a Supabase CLI-val vagy a SQL Editorban.' : 'Apply it with the Supabase CLI or SQL Editor.'}</li>
                       </ol>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const DatabaseStatusModal: React.FC<DatabaseStatusModalProps> = ({
                       className="absolute top-2 right-2 px-2.5 py-1.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copied ? (language === 'hu' ? 'Kimásolva!' : 'Copied!') : (language === 'hu' ? 'SQL Másolása' : 'Copy SQL')}</span>
+                      <span>{copied ? (language === 'hu' ? 'Kimásolva!' : 'Copied!') : (language === 'hu' ? 'Elérési út másolása' : 'Copy migration path')}</span>
                     </button>
                   </div>
                 </div>
@@ -266,7 +266,7 @@ export const DatabaseStatusModal: React.FC<DatabaseStatusModalProps> = ({
         {/* Footer */}
         <div className="px-5 py-3 bg-[#fff8f6] border-t border-[#eee7e4] flex items-center justify-between">
           <span className="text-xs text-[#524345]">
-            {language === 'hu' ? 'Supabase PostgreSQL + Firebase Dupla Adatbázis Védelem' : 'Supabase PostgreSQL + Firebase Dual Persistence'}
+            Supabase Auth + PostgreSQL
           </span>
           <button
             onClick={onClose}

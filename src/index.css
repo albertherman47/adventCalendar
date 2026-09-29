@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Quicksand", sans-serif;
-  --font-sans: "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Cormorant Garamond", "Quicksand", serif;
+  --font-sans: "Cormorant Garamond", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-christmas: "Mountains of Christmas", cursive;
 
   --color-primary: #2e0208;
@@ -73,14 +73,14 @@
   }
 
   body {
-    font-family: "Quicksand", sans-serif;
+    font-family: "Cormorant Garamond", "Quicksand", serif;
     background-color: #fff8f6;
     color: #1e1b1a;
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, .font-serif, .font-display, .font-headline-lg, .font-headline-md, .font-headline-sm {
-    font-family: "Quicksand", sans-serif;
+    font-family: "Cormorant Garamond", "Quicksand", serif;
   }
 }
 
@@ -236,6 +236,50 @@
   background-size: 14px 14px;
 }
 
+.printables-hero {
+  background-color: #35151b;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(235, 211, 161, 0.12) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 82% 72%, rgba(235, 211, 161, 0.1) 0 1px, transparent 1.5px),
+    linear-gradient(125deg, #2b1117 0%, #4a2024 54%, #1e382b 100%);
+  background-size: 34px 34px, 47px 47px, auto;
+}
+
+.printables-hero-art {
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(210, 176, 106, 0.18), transparent 56%),
+    linear-gradient(145deg, #254332 0%, #172b22 100%);
+}
+
+.print-greeting-card {
+  color: #3b2522;
+  border-color: #d4c39f;
+  background: linear-gradient(145deg, #fffdf8, #f6f0e4);
+  box-shadow: inset 0 0 0 1px rgba(178, 148, 87, 0.2);
+}
+
+.print-greeting-card-1 { --greeting-accent: #8a2731; }
+.print-greeting-card-2 { --greeting-accent: #315843; }
+.print-greeting-card-3 { --greeting-accent: #34465c; }
+.print-greeting-card-4 { --greeting-accent: #99612f; }
+
+.print-greeting-card h5,
+.print-greeting-card > div:first-of-type {
+  color: var(--greeting-accent);
+}
+
+.printable-page-art,
+.greeting-card-art {
+  display: block;
+  overflow: visible;
+}
+
+.greeting-card-art {
+  width: 100%;
+  height: 38px;
+  margin: 0 auto 0.5rem;
+}
+
 /* Print Styles */
 @media print {
   @page {
@@ -246,8 +290,186 @@
   body {
     background: white !important;
     color: black !important;
+    margin: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Print only the selected card or worksheet. The rest of the React app stays
+     out of the page even when it is mounted elsewhere in the tree. */
+  #root:has(#print-container),
+  #root:has(#print-sheet) {
+    visibility: hidden !important;
+  }
+
+  #print-container,
+  #print-sheet {
+    visibility: visible !important;
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    z-index: 999999 !important;
+    background: #fff !important;
+  }
+
+  #print-container {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  #print-container .card-print-spread {
+    width: 281mm !important;
+    height: 194mm !important;
+    max-width: none !important;
+    flex: none !important;
+  }
+
+  body[data-print-orientation='portrait'] #print-container .card-print-spread {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+  }
+
+  body[data-print-orientation='portrait'] #print-sheet {
+    padding: 7mm 8mm !important;
+    font-size: 9pt !important;
+  }
+
+  body[data-print-orientation='portrait'] #print-sheet h2 {
+    font-size: 21pt !important;
+  }
+
+  body[data-print-orientation='portrait'] #print-sheet th,
+  body[data-print-orientation='portrait'] #print-sheet td {
+    padding: 1.3mm !important;
+    font-size: 8pt !important;
+  }
+
+  #print-sheet {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 9mm 11mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #29231d !important;
+    font-family: Georgia, 'Times New Roman', serif !important;
+    font-size: 10pt !important;
+    line-height: 1.45 !important;
+    outline: 1px solid #c7aa70 !important;
+    outline-offset: -4mm !important;
+  }
+
+  #print-sheet h2 {
+    color: #4a151b !important;
+    font-size: 25pt !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  #print-sheet > div:first-child {
+    border-bottom: 1.5pt solid #b79a63 !important;
+    padding-bottom: 5mm !important;
+    margin-bottom: 5mm !important;
+  }
+
+  .printable-page-art {
+    height: 10mm !important;
+    max-width: 58mm !important;
+  }
+
+  .greeting-card-art {
+    height: 7mm !important;
+    margin-bottom: 1.5mm !important;
+  }
+
+  #print-sheet [class*="rounded-xl"],
+  #print-sheet [class*="rounded-lg"] {
+    border-radius: 2mm !important;
+    box-shadow: none !important;
+  }
+
+  #print-sheet table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #print-sheet th,
+  #print-sheet td {
+    border-color: #d9d0c3 !important;
+    padding: 2mm !important;
+  }
+
+  #print-sheet input[type='checkbox'] {
+    appearance: none !important;
+    width: 4mm !important;
+    height: 4mm !important;
+    border: 1pt solid #8f7c60 !important;
+    vertical-align: middle !important;
+  }
+
+  .print-greeting-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 3mm !important;
+  }
+
+  .print-greeting-card {
+    break-inside: avoid !important;
+    min-width: 0 !important;
+    padding: 4mm !important;
+    border: 0.7pt solid #c7aa70 !important;
+    background: #fffdf8 !important;
+    box-shadow: inset 0 0 0 1pt #eee5d2 !important;
+    color: #3b2522 !important;
+  }
+
+  .print-greeting-card h5,
+  .print-greeting-card > div:first-of-type {
+    color: var(--greeting-accent) !important;
+  }
+
+  .print-greeting-card > .greeting-photo-band {
+    height: 12mm !important;
+    margin: -4mm -4mm 3mm !important;
+  }
+
+  .print-greeting-card .greeting-photo-band {
+    height: 12mm !important;
+    flex: none !important;
+  }
+
+  .print-greeting-card .greeting-photo-band img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .print-greeting-card img.greeting-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 7mm !important;
+    max-height: 7mm !important;
+    margin: 0 0 1.5mm !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    flex: none !important;
+    break-inside: avoid !important;
+  }
+
+  #print-sheet h3,
+  #print-sheet h4 {
+    break-after: avoid-page;
+  }
+
+  #print-sheet input,
+  #print-sheet textarea {
+    background: transparent !important;
+    color: #29231d !important;
+    border-color: #a99b87 !important;
   }
 
   * {
@@ -265,8 +487,13 @@
 
   .print-page {
     box-shadow: none !important;
-    border: 1px solid #ddd !important;
-    padding: 20px !important;
+    border: 0 !important;
+    padding: 0 !important;
+    page-break-after: auto !important;
+  }
+
+  #print-container .page-break-after {
+    break-after: page;
     page-break-after: always;
   }
 }

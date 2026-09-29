@@ -12,7 +12,6 @@ interface AdventCalendarProps {
   days: DayData[];
   userProgress: UserProgress;
   onOpenDayModal: (day: DayData) => void;
-  onTogglePreviewMode: () => void;
   onBackToLanding: () => void;
   onUpdateStartDate?: (newStartDate: string) => void;
   onOpenPaywall?: (day?: DayData) => void;
@@ -23,7 +22,6 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
   days,
   userProgress,
   onOpenDayModal,
-  onTogglePreviewMode,
   onBackToLanding,
   onUpdateStartDate,
   onOpenPaywall,
@@ -97,7 +95,7 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
           <span>{t.nav.backToHome}</span>
         </button>
 
-        {/* Start Date & Preview Mode Toggle */}
+        {/* Start Date */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#EAE3D5] text-xs text-[#5E574D] shadow-xs">
             <CalendarDays className="w-3.5 h-3.5 text-[#C29B48]" />
@@ -105,17 +103,6 @@ export const AdventCalendar: React.FC<AdventCalendarProps> = ({
             <span className="font-semibold text-[#2C0B12]">{dateInfo.startDateFormatted}</span>
           </div>
 
-          <button
-            onClick={onTogglePreviewMode}
-            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all cursor-pointer min-h-[36px] ${
-              userProgress.isPreviewMode
-                ? 'bg-[#2E5844] text-white border-[#2E5844]'
-                : 'bg-white text-[#621927] border-[#EAE3D5] hover:border-[#621927]'
-            }`}
-            title={userProgress.isPreviewMode ? "Előnézeti mód: minden nap azonnal megtekinthető" : "Normál mód: zárolások és rituálé ritmus"}
-          >
-            {userProgress.isPreviewMode ? "✓ Előnézet bekapcsolva" : "Előnézet bekapcsolása"}
-          </button>
         </div>
       </div>
 

@@ -12,7 +12,6 @@ interface NavbarProps {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   isPreviewMode: boolean;
-  onTogglePreviewMode: () => void;
   hasPurchased: boolean;
   onOpenCheckout: () => void;
   snowEnabled: boolean;
@@ -22,6 +21,7 @@ interface NavbarProps {
   completedCount?: number;
   userTier?: PricingTier;
   onOpenRestoreModal?: () => void;
+  accountEmail?: string | null;
 }
 
 // 3D Festive Christmas Bauble / Holiday Sphere Ornament with Gold Cap & Specular Shine
@@ -82,7 +82,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   isPreviewMode,
-  onTogglePreviewMode,
   hasPurchased,
   onOpenCheckout,
   snowEnabled,
@@ -92,6 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   completedCount = 8,
   userTier = 'free',
   onOpenRestoreModal,
+  accountEmail = null,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -361,10 +361,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenRestoreModal}
               className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FAF7F2] hover:bg-[#F1E9DB] text-[#621927] text-xs font-semibold border border-[#EAE3D5] transition-all cursor-pointer shadow-2xs"
-              title={language === 'hu' ? 'Előfizetés visszaállítása adatbázisból' : 'Restore subscription from database'}
+              title={language === 'hu' ? 'Fiók bejelentkezés vagy regisztráció' : 'Sign in or create an account'}
             >
-              <span className="text-xs">🔑</span>
-              <span className="hidden xl:inline">{language === 'hu' ? 'Visszaállítás' : 'Restore'}</span>
+              <span className="text-xs">{accountEmail ? '👤' : '🔑'}</span>
+              <span className="hidden xl:inline">{accountEmail ? (accountEmail.split('@')[0]) : (language === 'hu' ? 'Belépés' : 'Account')}</span>
             </button>
           )}
 
@@ -434,7 +434,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="text-[11px] font-semibold text-[#621927] underline flex items-center gap-1 cursor-pointer"
               >
                 <span>🔑</span>
-                <span>{language === 'hu' ? 'Visszaállítás' : 'Restore'}</span>
+                <span>{accountEmail ? (language === 'hu' ? 'Fiók kezelése' : 'Manage account') : (language === 'hu' ? 'Belépés / Regisztráció' : 'Sign in / Sign up')}</span>
               </button>
             )}
           </div>

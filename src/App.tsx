@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { SupportedLanguage, DayData, UserProgress, PricingTier, GiftItem } from './types';
-import { ADVENT_DAYS, getLocalizedAdventDays } from './data/adventDays';
 import { Navbar, NavTab } from './components/Navbar';
 import { SnowEffect } from './components/SnowEffect';
 import { LandingPage } from './components/LandingPage';
@@ -17,19 +17,40 @@ import { DatabaseStatusModal } from './components/DatabaseStatusModal';
 import { MarketingBanner } from './components/MarketingBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { TierFeatureGateModal } from './components/TierFeatureGateModal';
-import { RestoreSubscriptionModal } from './components/RestoreSubscriptionModal';
+import { AccountModal } from './components/AccountModal';
+import { AdminPage } from './components/AdminPage';
 import { Footer } from './components/Footer';
 import { toggleFireplaceAudio } from './utils/audio';
 import { trackEvent } from './utils/analytics';
-import { testConnection } from './lib/firebase';
+import { supabase } from './lib/supabase';
 import { 
-  getOrCreateLocalUserId, 
-  syncUserProgressToDatabase, 
+  loadAccountEntitlement,
+  loadUserProgress,
+  saveUserProgress,
   checkFeatureAccess 
 } from './lib/subscriptionService';
 
 const STORAGE_KEY = 'christmas_reset_progress_2026';
 const LANGUAGE_STORAGE_KEY = 'christmas_reset_lang_2026';
+
+function loadGuestProgress(): UserProgress {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return {
+        ...DEFAULT_PROGRESS,
+        ...JSON.parse(saved),
+        selectedTier: 'free',
+        hasPurchased: false,
+        unlockedDays: [1, 4],
+        isPreviewMode: false,
+      };
+    }
+  } catch {
+    // safe fallback
+  }
+  return DEFAULT_PROGRESS;
+}
 
 const DEFAULT_PROGRESS: UserProgress = {
   hasPurchased: false,
@@ -106,7 +127,7 @@ export default function App() {
     }
   };
 
-  const currentAdventDays = getLocalizedAdventDays(language);
+  const [currentAdventDays, setCurrentAdventDays] = useState<DayData[]>([]);
 
   const [activeTab, setActiveTab] = useState<NavTab>('landing');
   const [isSnowing, setIsSnowing] = useState<boolean>(true);
@@ -117,7 +138,10 @@ export default function App() {
   const [isDayModalOpen, setIsDayModalOpen] = useState<boolean>(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState<boolean>(false);
-  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState<boolean>(false);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState<boolean>(() => window.location.hash.includes('type=recovery'));
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [accountTier, setAccountTier] = useState<PricingTier>('free');
+  const [accountLoadedFor, setAccountLoadedFor] = useState<string | null>(null);
   const [isFeatureGateModalOpen, setIsFeatureGateModalOpen] = useState<boolean>(false);
   const [isDatabaseStatusModalOpen, setIsDatabaseStatusModalOpen] = useState<boolean>(false);
   const [gateDetails, setGateDetails] = useState<{
@@ -132,15 +156,6 @@ export default function App() {
   const [selectedTier, setSelectedTier] = useState<PricingTier>('premium');
   const [selectedPrintableId, setSelectedPrintableId] = useState<string | null>(null);
 
-  // Test Firestore database connectivity on startup as mandated by firebase-skill
-  useEffect(() => {
-    testConnection().then((connected) => {
-      if (connected) {
-        console.log('Firebase Firestore connection verified successfully.');
-      }
-    });
-  }, []);
-
   // Keep selectedDay synchronized with localized day when language changes
   useEffect(() => {
     if (selectedDay) {
@@ -153,30 +168,115 @@ export default function App() {
 
   // User Progress state with LocalStorage persistence
   const [userProgress, setUserProgress] = useState<UserProgress>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        return { ...DEFAULT_PROGRESS, ...JSON.parse(saved) };
-      }
-    } catch {
-      // safe fallback
-    }
-    return DEFAULT_PROGRESS;
+    return loadGuestProgress();
   });
 
-  const currentTier: PricingTier = userProgress.selectedTier || (userProgress.hasPurchased ? 'premium' : 'free');
+  const currentTier: PricingTier = authUser ? accountTier : 'free';
+
+  useEffect(() => {
+    const protectedFeature = activeTab === 'ai-card' ? 'ai-card'
+      : activeTab === 'emergency' ? 'emergency'
+      : activeTab === 'gift-helper' ? 'gift-helper'
+      : null;
+    if (!protectedFeature) return;
+    const access = checkFeatureAccess(protectedFeature, currentTier);
+    if (!access.allowed) {
+      setGateDetails({
+        requiredTier: access.requiredTier,
+        title: protectedFeature === 'ai-card' ? 'AI Képeslap Studio'
+          : protectedFeature === 'emergency' ? 'Karácsonyi Vészhelyzet Mód'
+          : 'Ajándéksegéd',
+        subtitle: access.reason,
+      });
+      setActiveTab('landing');
+      setIsFeatureGateModalOpen(true);
+    }
+  }, [activeTab, currentTier]);
+
+  useEffect(() => {
+    if (authUser && accountLoadedFor !== authUser.id) return;
+    let active = true;
+    const loadAdventDays = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const response = await fetch(`/api/advent-days?language=${encodeURIComponent(language)}`, {
+          headers: data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {},
+        });
+        if (!response.ok) throw new Error(`Content request failed (${response.status})`);
+        const result: { days: DayData[] } = await response.json();
+        if (active) setCurrentAdventDays(result.days);
+      } catch (error) {
+        console.error('Advent content could not be loaded:', error);
+        if (active) setCurrentAdventDays([]);
+      }
+    };
+    void loadAdventDays();
+    return () => { active = false; };
+  }, [language, authUser, accountTier, accountLoadedFor]);
+
+  useEffect(() => {
+    let alive = true;
+    let requestVersion = 0;
+    const loadSessionAccount = async (user: User | null) => {
+      const version = ++requestVersion;
+      if (!alive) return;
+      setAuthUser(user);
+      setAccountLoadedFor(null);
+      if (!user) {
+        setAccountTier('free');
+        setUserProgress(loadGuestProgress());
+        return;
+      }
+      try {
+        const [entitlement, remoteProgress] = await Promise.all([
+          loadAccountEntitlement(user.id),
+          loadUserProgress(user.id),
+        ]);
+        if (!alive || version !== requestVersion) return;
+        setAccountTier(entitlement.tier);
+        setUserProgress(() => ({
+          ...DEFAULT_PROGRESS,
+          ...(remoteProgress || {}),
+          selectedTier: entitlement.tier,
+          hasPurchased: entitlement.tier !== 'free',
+          unlockedDays: entitlement.tier === 'free' ? [1, 4] : Array.from({ length: 24 }, (_, index) => index + 1),
+          isPreviewMode: false,
+        }));
+        setAccountLoadedFor(user.id);
+      } catch (error) {
+        console.error('Account data could not be loaded:', error);
+        if (alive && version === requestVersion) {
+          setAccountTier('free');
+          setUserProgress(DEFAULT_PROGRESS);
+        }
+      }
+    };
+
+    supabase.auth.getSession().then(({ data }) => loadSessionAccount(data.session?.user ?? null));
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') return;
+      void loadSessionAccount(session?.user ?? null);
+    });
+    return () => {
+      alive = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Save on updates and sync to cloud database
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userProgress));
-    } catch {
-      // storage error fallback
+    if (!authUser) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userProgress));
+      } catch {
+        // storage error fallback
+      }
     }
 
-    const localUid = getOrCreateLocalUserId();
-    syncUserProgressToDatabase(localUid, userProgress);
-  }, [userProgress]);
+    if (authUser && accountLoadedFor === authUser.id) {
+      saveUserProgress(authUser.id, userProgress).catch((error) => console.warn('Progress sync failed:', error));
+    }
+  }, [userProgress, authUser, accountLoadedFor]);
 
   // Audio ambient toggle
   const handleToggleAudio = () => {
@@ -188,7 +288,7 @@ export default function App() {
   // Day Modal Handlers with Tier Gating
   const handleOpenDayModal = (day: DayData) => {
     const access = checkFeatureAccess('day', currentTier, day.id);
-    if (!access.allowed && !userProgress.isPreviewMode) {
+    if (!access.allowed) {
       setGateDetails({
         requiredTier: access.requiredTier,
         title: `${day.id}. Nap: ${day.title}`,
@@ -306,14 +406,6 @@ export default function App() {
     }));
   };
 
-  // Toggle Creator/Preview Mode
-  const handleTogglePreviewMode = () => {
-    setUserProgress((prev) => ({
-      ...prev,
-      isPreviewMode: !prev.isPreviewMode,
-    }));
-  };
-
   // Update Start Date
   const handleUpdateStartDate = (newStartDate: string) => {
     setUserProgress((prev) => ({
@@ -328,28 +420,11 @@ export default function App() {
     setIsCheckoutModalOpen(true);
   };
 
-  // Successful purchase unlock
-  const handleSuccessUnlock = (purchasedTier: PricingTier, customerEmail: string) => {
-    setUserProgress((prev) => ({
-      ...prev,
-      hasPurchased: true,
-      selectedTier: purchasedTier,
-      unlockedDays: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-    }));
-
+  const handleSignOut = () => {
+    setAccountTier('free');
+    setUserProgress(DEFAULT_PROGRESS);
     setIsCheckoutModalOpen(false);
     setIsFeatureGateModalOpen(false);
-    setActiveTab('calendar');
-  };
-
-  // Quick switch tier for testing / reviewers
-  const handleQuickSimulateTier = (tier: PricingTier) => {
-    setUserProgress((prev) => ({
-      ...prev,
-      selectedTier: tier,
-      hasPurchased: tier !== 'free',
-      unlockedDays: tier === 'free' ? [1, 4] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-    }));
   };
 
   // Navigating to Printables
@@ -359,6 +434,10 @@ export default function App() {
     setActiveTab('printables');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (window.location.pathname.replace(/\/$/, '') === '/admin') {
+    return <AdminPage user={authUser} language={language} onSignedOut={handleSignOut} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-surface text-on-surface selection:bg-primary-container selection:text-white relative font-sans">
@@ -383,7 +462,6 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         isPreviewMode={userProgress.isPreviewMode}
-        onTogglePreviewMode={handleTogglePreviewMode}
         hasPurchased={userProgress.hasPurchased}
         onOpenCheckout={() => handleOpenCheckoutWithTier('premium')}
         snowEnabled={isSnowing}
@@ -393,6 +471,7 @@ export default function App() {
         completedCount={userProgress.completedDays.length}
         userTier={currentTier}
         onOpenRestoreModal={() => setIsRestoreModalOpen(true)}
+        accountEmail={authUser?.email ?? null}
       />
 
       {/* Main View Router */}
@@ -437,7 +516,6 @@ export default function App() {
             days={currentAdventDays}
             userProgress={userProgress}
             onOpenDayModal={handleOpenDayModal}
-            onTogglePreviewMode={handleTogglePreviewMode}
             onUpdateStartDate={handleUpdateStartDate}
             onBackToLanding={() => {
               setActiveTab('landing');
@@ -584,20 +662,13 @@ export default function App() {
         }}
       />
 
-      {/* Database Purchase Restore Modal */}
-      <RestoreSubscriptionModal
+      {/* Supabase Auth account */}
+      <AccountModal
         isOpen={isRestoreModalOpen}
         onClose={() => setIsRestoreModalOpen(false)}
         language={language}
-        onSuccessRestore={(restoredTier) => {
-          setUserProgress((prev) => ({
-            ...prev,
-            hasPurchased: true,
-            selectedTier: restoredTier,
-            unlockedDays: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-          }));
-        }}
-        onQuickSimulateTier={handleQuickSimulateTier}
+        user={authUser}
+        onSignedOut={handleSignOut}
       />
 
       {/* Global Checkout Modal */}
@@ -607,7 +678,8 @@ export default function App() {
         selectedTier={selectedTier}
         onTierChange={setSelectedTier}
         language={language}
-        onSuccessUnlock={handleSuccessUnlock}
+        user={authUser}
+        onOpenAccount={() => { setIsCheckoutModalOpen(false); setIsRestoreModalOpen(true); }}
       />
 
       {/* Multinational Entry & Global Language Selection Modal */}

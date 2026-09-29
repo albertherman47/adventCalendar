@@ -106,7 +106,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 no-print">
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 no-print" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
         {/* Festive Background Glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-b from-[#BA1A2C]/20 via-[#C29B48]/15 to-transparent blur-3xl rounded-full" />

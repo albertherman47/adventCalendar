@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Lock, Sparkles, CheckCircle2, ArrowRight, ShieldCheck, Heart, Star } from 'lucide-react';
+import { X, Lock, Sparkles, CheckCircle2, ArrowRight, Heart, Star } from 'lucide-react';
 import { SupportedLanguage, PricingTier } from '../types';
 import { getTranslations } from '../data/translations';
 
@@ -31,7 +31,7 @@ export const TierFeatureGateModal: React.FC<TierFeatureGateModalProps> = ({
   const isHu = language === 'hu';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="relative w-full max-w-lg bg-white rounded-3xl border border-[#D8B76E]/50 shadow-2xl overflow-hidden animate-scale-in">
         {/* Top Gold Gradient Header */}
         <div className="bg-gradient-to-r from-[#2C0B12] via-[#621927] to-[#2C0B12] p-6 text-white text-center relative overflow-hidden">
@@ -138,10 +138,7 @@ export const TierFeatureGateModal: React.FC<TierFeatureGateModalProps> = ({
             )}
 
             <div className="flex items-center justify-between text-[11px] text-[#7E7468] pt-1">
-              <span className="flex items-center gap-1 text-[#2E5844] font-medium">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{isHu ? '100% Pénzvisszafizetési garancia' : '100% Money-Back Guarantee'}</span>
-              </span>
+              <span className="text-[#7E7468]">{isHu ? 'Online fizetés még nem aktív' : 'Online payment is not active yet'}</span>
 
               <button
                 type="button"
@@ -151,7 +148,7 @@ export const TierFeatureGateModal: React.FC<TierFeatureGateModalProps> = ({
                 }}
                 className="underline hover:text-[#621927] transition-colors cursor-pointer"
               >
-                {isHu ? 'Már fizettél? Hozzáférés visszaállítása' : 'Already purchased? Restore access'}
+                {isHu ? 'Bejelentkezés a fiókodba' : 'Sign in to your account'}
               </button>
             </div>
           </div>

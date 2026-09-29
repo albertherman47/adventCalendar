@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:3000';
 
-// Helper to set up a client with specific tier in localStorage
+// Simulate a user tampering with localStorage. Paid tiers must still require
+// an authenticated Supabase account and a database entitlement.
 async function setupClient(page: any, tier: 'free' | 'standard' | 'premium', clientName: string) {
   await page.goto(BASE_URL);
   await page.waitForLoadState('networkidle');
@@ -13,7 +14,7 @@ async function setupClient(page: any, tier: 'free' | 'standard' | 'premium', cli
   });
   
   // Set up the tier in localStorage
-  await page.evaluate((t) => {
+  await page.evaluate((t: 'free' | 'standard' | 'premium') => {
     const DEFAULT_PROGRESS = {
       hasPurchased: t !== 'free',
       selectedTier: t,
@@ -122,32 +123,18 @@ test.describe('Tier-based Access Control Tests', () => {
     console.log('✅ Free tier: AI Card Studio blocked correctly');
   });
 
-  test('Standard tier client - all days accessible', async ({ page }) => {
+  test('Spoofed Standard tier in localStorage does not unlock paid days', async ({ page }) => {
     await setupClient(page, 'standard', 'Client 2 (Standard)');
     
     // Navigate to calendar
     await page.click('text=Naptár');
     await page.waitForTimeout(500);
     
-    // All days should be accessible (no lock icons)
-    for (let day = 1; day <= 24; day++) {
-      const dayButton = page.locator(`[data-day-id="${day}"]`).first();
-      await expect(dayButton).toBeVisible();
-    }
-    
-    // Click Day 12 - should open day modal, not paywall
+    // Day metadata is visible, but the protected content remains locked.
     await page.locator('[data-day-id="12"]').first().click();
     await page.waitForTimeout(500);
-    
-    const dayModal = page.locator('[role="dialog"]').first();
-    await expect(dayModal).toBeVisible();
-    
-    // Should NOT see paywall
-    const paywallModal = page.locator('text=Teljes Adventi Kalendáriumhoz Kötött');
-    await expect(paywallModal).not.toBeVisible();
-    
-    await page.click('button:has-text("×")');
-    console.log('✅ Standard tier: All 24 days accessible');
+    await expect(page.locator('text=TELJES ADVENTI CSOMAGHOZ KÖTÖTT')).toBeVisible();
+    console.log('✅ A browser-stored Standard tier did not grant access');
   });
 
   test('Standard tier client - Emergency Mode blocked', async ({ page }) => {
@@ -180,77 +167,58 @@ test.describe('Tier-based Access Control Tests', () => {
     console.log('✅ Standard tier: AI Card Studio blocked (Premium only)');
   });
 
-  test('Premium tier client - everything accessible', async ({ page }) => {
+  test('Spoofed Premium tier in localStorage does not unlock paid days', async ({ page }) => {
     await setupClient(page, 'premium', 'Client 3 (Premium)');
     
     // Navigate to calendar
     await page.click('text=Naptár');
     await page.waitForTimeout(500);
     
-    // All days accessible
-    for (let day = 1; day <= 24; day++) {
-      const dayButton = page.locator(`[data-day-id="${day}"]`).first();
-      await expect(dayButton).toBeVisible();
-    }
-    
-    // Click Day 24 - should open day modal
+    // A forged local plan cannot open the server-protected day content.
     await page.locator('[data-day-id="24"]').first().click();
     await page.waitForTimeout(500);
-    
-    const dayModal = page.locator('[role="dialog"]').first();
-    await expect(dayModal).toBeVisible();
-    
-    await page.click('button:has-text("×")');
-    console.log('✅ Premium tier: All 24 days accessible');
+    await expect(page.locator('text=TELJES ADVENTI CSOMAGHOZ KÖTÖTT')).toBeVisible();
+    console.log('✅ A browser-stored Premium tier did not grant access');
   });
 
-  test('Premium tier client - Emergency Mode accessible', async ({ page }) => {
+  test('Spoofed Premium tier cannot open Emergency Mode', async ({ page }) => {
     await setupClient(page, 'premium', 'Client 3 (Premium)');
     
     // Navigate to Emergency Mode
     await page.click('text=Vészhelyzet Mód');
     await page.waitForTimeout(500);
     
-    // Should NOT see paywall - should see the emergency mode content
+    // Route-level access uses the account entitlement, not localStorage.
     const paywallModal = page.locator('text=Karácsonyi Vészhelyzet Mód');
-    await expect(paywallModal).not.toBeVisible();
-    
-    // Check for emergency mode content
-    const emergencyContent = page.locator('text=Vészhelyzet');
-    await expect(emergencyContent.first()).toBeVisible();
-    
-    console.log('✅ Premium tier: Emergency Mode accessible');
+    await expect(paywallModal).toBeVisible();
+    console.log('✅ A browser-stored Premium tier did not unlock Emergency Mode');
   });
 
-  test('Premium tier client - AI Card Studio accessible', async ({ page }) => {
+  test('Spoofed Premium tier cannot open AI Card Studio', async ({ page }) => {
     await setupClient(page, 'premium', 'Client 3 (Premium)');
     
     // Navigate to AI Card Studio
     await page.click('text=AI Képeslap');
     await page.waitForTimeout(500);
     
-    // Should NOT see paywall - should see the card studio content
+    // AI access is checked by the app and again by its server endpoint.
     const paywallModal = page.locator('text=Prémium Funkció');
-    await expect(paywallModal).not.toBeVisible();
-    
-    // Check for card studio content
-    const cardStudio = page.locator('text=Képeslap');
-    await expect(cardStudio.first()).toBeVisible();
-    
-    console.log('✅ Premium tier: AI Card Studio accessible');
+    await expect(paywallModal).toBeVisible();
+    console.log('✅ A browser-stored Premium tier did not unlock AI Card Studio');
   });
 
-  test('Premium tier client - Full Printables accessible', async ({ page }) => {
+  test('Spoofed Premium tier does not unlock full Printables', async ({ page }) => {
     await setupClient(page, 'premium', 'Client 3 (Premium)');
     
     // Navigate to Printables
     await page.click('text=Letölthető');
     await page.waitForTimeout(500);
     
-    // Should see printable resources without paywall for full access
+    // The catalogue is visible, but its paid resources remain protected.
     const printablesContent = page.locator('text=Munkalapok');
     await expect(printablesContent.first()).toBeVisible();
-    
-    console.log('✅ Premium tier: Full Printables accessible');
+    await page.getByRole('button', { name: 'Feloldás' }).first().click();
+    await expect(page.locator('text=Prémium Nyomtatható Munkalapok')).toBeVisible();
+    console.log('✅ A browser-stored Premium tier did not unlock full Printables');
   });
 });

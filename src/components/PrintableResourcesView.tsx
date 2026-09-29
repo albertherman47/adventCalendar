@@ -1,9 +1,30 @@
 import React, { useState } from 'react';
-import { Download, Printer, ArrowLeft, Sparkles, Eye, X, Check, Heart, Film, Utensils, Gift, DollarSign, ShoppingCart, Clock, ShieldCheck, Mail, HelpCircle } from 'lucide-react';
+import { Download, Printer, ArrowLeft, Sparkles, Eye, X, Check, Heart, Film, Utensils, Gift, DollarSign, ShoppingCart, Clock, ShieldCheck, Mail, HelpCircle, TreePine, Snowflake } from 'lucide-react';
 import { SupportedLanguage, PricingTier } from '../types';
 import { getTranslations } from '../data/translations';
 import { trackEvent } from '../utils/analytics';
 import { PRINTABLE_RESOURCES, PrintableResourceData, getLocalizedText } from '../data/printableResources';
+import { printA4, type PrintOrientation } from '../utils/printA4';
+
+const holidayPhotos = Object.entries(import.meta.glob<string>(
+  '../assets/christmas-images/*.{avif,gif,jpg,jpeg,png,webp}',
+  { eager: true, query: '?url', import: 'default' },
+)).sort(([a], [b]) => a.localeCompare(b)).map(([, imageUrl]) => imageUrl);
+
+const christmasSvgFiles = Object.values(import.meta.glob<string>(
+  '../assets/christmas-svgs/*.svg',
+  { eager: true, query: '?url', import: 'default' },
+));
+const selectedChristmasSvgs = new Map<string, string>();
+
+const getRandomChristmasSvg = (slot: string) => {
+  if (christmasSvgFiles.length === 0) return undefined;
+  if (!selectedChristmasSvgs.has(slot)) {
+    const randomIndex = Math.floor(Math.random() * christmasSvgFiles.length);
+    selectedChristmasSvgs.set(slot, christmasSvgFiles[randomIndex]);
+  }
+  return selectedChristmasSvgs.get(slot);
+};
 
 interface PrintableResourcesViewProps {
   language: SupportedLanguage;
@@ -31,13 +52,16 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
     }
     return null;
   });
+  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('landscape');
 
   const handlePrint = (item: PrintableResourceData) => {
-    trackEvent('download_resource', { resourceId: item.id, title: getLocalizedText(item.title, language) });
     setActiveItem(item);
-    setTimeout(() => {
-      window.print();
-    }, 250);
+  };
+
+  const handlePrintActive = () => {
+    if (!activeItem) return;
+    trackEvent('download_resource', { resourceId: activeItem.id, title: getLocalizedText(activeItem.title, language) });
+    printA4(printOrientation);
   };
 
   const getCardIcon = (styleType: string) => {
@@ -89,32 +113,54 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
         </div>
       </div>
 
-      {/* Editorial Title Section */}
-      <div className="text-center max-w-3xl mx-auto mb-14 no-print space-y-3">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-widest">
-          <span className="font-christmas text-base">Atelier 2026</span> • {language === 'hu' ? "Nyomtatható Kollekció" : language === 'en' ? "Printables Suite" : "Colecția Imprimabilă"}
+      {/* Christmas editorial hero */}
+      <section className="printables-hero no-print mb-12 sm:mb-16 overflow-hidden rounded-[2rem] border border-[#d8c7a4] shadow-[0_18px_55px_rgba(55,22,22,0.16)]">
+        <div className="grid lg:grid-cols-[1.1fr_0.9fr] min-h-[350px]">
+          <div className="relative z-10 flex flex-col justify-center px-7 py-10 sm:px-12 sm:py-14 text-[#fffaf0]">
+            <div className="flex items-center gap-2 text-[#e5c781] text-xs font-bold uppercase tracking-[0.2em] mb-5">
+              <Snowflake className="w-4 h-4" />
+              <span>{language === 'hu' ? 'Karácsonyi műhely • 2026' : language === 'en' ? 'Christmas Atelier • 2026' : 'Atelier de Crăciun • 2026'}</span>
+            </div>
+            <h1 className="max-w-2xl font-serif text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.06] tracking-tight">
+              {language === 'hu' ? 'Az ünnep apró örömei, papírra rendezve' : language === 'en' ? 'Little holiday joys, made tangible' : 'Bucurii de sărbători, așternute pe hârtie'}
+            </h1>
+            <p className="mt-5 max-w-xl text-sm sm:text-base leading-relaxed text-[#f3e7d7]">
+              {language === 'hu' ? 'Tervezők, listák és családi játékok a nyugodtabb készülődéshez. Válassz egy lapot, nézd át, majd nyomtasd ki vagy mentsd PDF-ként.' : language === 'en' ? 'Planners, lists and family games for a calmer season. Choose a page, preview it, then print or save it as a PDF.' : 'Planificatoare, liste și jocuri de familie pentru pregătiri mai liniștite. Alege o fișă, previzualizeaz-o și apoi imprim-o sau salveaz-o ca PDF.'}
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#f3e7d7]">
+              <span className="rounded-full border border-white/25 bg-white/10 px-4 py-2">A4 • PDF</span>
+              <span>{language === 'hu' ? '9 ünnepi segédanyag' : language === 'en' ? '9 festive printables' : '9 fișe festive'}</span>
+            </div>
+          </div>
+          <div className="printables-hero-art relative min-h-[250px] lg:min-h-full flex items-center justify-center overflow-hidden">
+            {holidayPhotos.length > 0 ? (
+              <img src={holidayPhotos[0]} alt={language === 'hu' ? 'Karácsonyi hangulatkép' : 'Christmas scene'} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="relative flex flex-col items-center text-[#f2d89a]">
+                <div className="absolute -top-12 -right-24 text-white/10"><Snowflake className="w-52 h-52" strokeWidth={0.6} /></div>
+                <div className="relative rounded-full border border-[#e5c781]/40 bg-[#fffaf0]/5 p-7 shadow-[0_0_80px_rgba(229,199,129,0.12)]">
+                  <TreePine className="w-36 h-36 sm:w-44 sm:h-44" strokeWidth={1.1} />
+                  <span className="absolute top-5 left-1/2 w-2.5 h-2.5 rounded-full bg-[#e5c781] shadow-[0_0_14px_#e5c781]" />
+                  <span className="absolute top-1/2 left-7 w-2 h-2 rounded-full bg-[#b8514b]" />
+                  <span className="absolute bottom-8 right-8 w-2.5 h-2.5 rounded-full bg-[#b8514b]" />
+                </div>
+                <span className="mt-5 font-christmas text-2xl">Christmas Reset</span>
+              </div>
+            )}
+            {holidayPhotos.length > 0 && <div className="absolute inset-0 bg-gradient-to-r from-[#35151b]/45 via-transparent to-[#35151b]/10" />}
+            <div className="absolute bottom-5 right-5 rounded-full border border-white/30 bg-[#35151b]/70 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm">
+              {language === 'hu' ? 'Készülj ráérősen' : language === 'en' ? 'Make room for joy' : 'Bucură-te de pregătiri'}
+            </div>
+          </div>
         </div>
-        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-primary tracking-tight">
-          {language === 'hu'
-            ? "Nyomtatható Segédanyagok & Tervezőlapok"
-            : language === 'en'
-            ? "Printable Planners & Holiday Keepsakes"
-            : "Ghiduri & Planificatoare Imprimabile"}
-        </h1>
-        <p className="font-christmas text-xl sm:text-2xl text-secondary">
-          {language === 'hu'
-            ? "9 egyedi kézműves kiadvány a meghitt, kapkodásmentes karácsonyért"
-            : language === 'en'
-            ? "9 uniquely crafted templates for a calm, serene Christmas season"
-            : "9 fișe unice de atelier create pentru un decembrie plin de armonie"}
-        </p>
-        <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-          {language === 'hu'
-            ? "Minden kiadványunk sajátos, egyedi vizuális karakterrel készült. Nyomtasd ki vastag papírra a családi asztalhoz, vagy mentsd le PDF-ként!"
-            : language === 'en'
-            ? "Each resource features its own bespoke visual theme and layout. Print directly on fine cardstock or save to your tablet!"
-            : "Fiecare fișă are propria identitate grafică și ritm. Imprimă-le pe carton gros pentru biroul tău sau salvează-le în format PDF!"}
-        </p>
+      </section>
+
+      <div className="no-print mb-6 flex items-end justify-between gap-4">
+        <div>
+          <p className="font-christmas text-lg text-[#8e6b38]">{language === 'hu' ? 'Gondosan összeállítva az ünnepekre' : language === 'en' ? 'Made for the season' : 'Pregătite pentru sărbători'}</p>
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#42151b]">{language === 'hu' ? 'Válassz egy nyomtatható lapot' : language === 'en' ? 'Choose a printable' : 'Alege o fișă de imprimat'}</h2>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-2 text-xs text-[#6b5a4b]"><Printer className="w-4 h-4" />{language === 'hu' ? 'Előnézet minden nyomtatás előtt' : language === 'en' ? 'Preview before printing' : 'Previzualizare înainte de imprimare'}</span>
       </div>
 
       {/* 9 Cards Grid - Each with a completely unique design */}
@@ -146,6 +192,11 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
                 }
               }}
             >
+              {holidayPhotos.length > 0 && (
+                <div className="-mx-6 -mt-6 mb-5 h-36 overflow-hidden rounded-t-2xl border-b border-white/20">
+                  <img src={holidayPhotos[index % holidayPhotos.length]} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                </div>
+              )}
               {/* Distinctive Decorative Corner / Top Element per card */}
               {isLocked && (
                 <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[#D8B76E] border border-[#D8B76E]/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 z-10">
@@ -280,7 +331,7 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
                   className="py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-white text-primary hover:bg-amber-100 transition-colors shadow-sm cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>{language === 'hu' ? "Nyomtatás" : language === 'en' ? "Print" : "Tipărește"}</span>
+                    <span>{language === 'hu' ? "Előnézet" : language === 'en' ? "Preview" : "Previzualizare"}</span>
                 </button>
               </div>
             </div>
@@ -290,7 +341,7 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
 
       {/* Detailed Modal Sheet Preview for the active item */}
       {activeItem && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={(event) => { if (event.target === event.currentTarget) setActiveItem(null); }}>
           <div className="relative w-full max-w-3xl bg-surface rounded-2xl shadow-2xl p-4 sm:p-8 space-y-5 sm:space-y-6 max-h-[92vh] overflow-y-auto border border-surface-container-high">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-surface-container-high no-print">
@@ -315,10 +366,35 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
               </button>
             </div>
 
+            <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#D8C9B6] bg-[#F8F4EE] px-4 py-3 text-xs text-[#534343]" aria-label={language === 'hu' ? 'Nyomtatási beállítások előnézete' : 'Print settings preview'}>
+              <span className="font-semibold text-[#4A151B]">
+                {language === 'hu' ? 'Nyomtatási előnézet' : language === 'en' ? 'Print preview' : 'Previzualizare print'}
+              </span>
+              <div className="inline-flex items-center gap-1 rounded-lg border border-[#D8C9B6] bg-white p-1" role="group" aria-label={language === 'hu' ? 'Lap tájolása' : 'Page orientation'}>
+                {(['portrait', 'landscape'] as const).map((orientation) => (
+                  <button
+                    key={orientation}
+                    type="button"
+                    aria-pressed={printOrientation === orientation}
+                    onClick={() => setPrintOrientation(orientation)}
+                    className={`rounded-md px-2.5 py-1.5 font-semibold transition-colors ${printOrientation === orientation ? 'bg-[#4A151B] text-white' : 'text-[#534343] hover:bg-[#F3ECE2]'}`}
+                  >
+                    {orientation === 'portrait'
+                      ? (language === 'hu' ? 'Álló' : language === 'en' ? 'Portrait' : 'Portret')
+                      : (language === 'hu' ? 'Fekvő' : language === 'en' ? 'Landscape' : 'Peisaj')}
+                  </button>
+                ))}
+              </div>
+              <span>{getLocalizedText(activeItem.pageCount, language)}</span>
+            </div>
+
             {/* The Actual Printable Sheet Paper Presentation */}
-            <div className="print-page bg-white rounded-xl p-4 sm:p-10 border border-surface-container shadow-md space-y-5 sm:space-y-6 text-[#1E1B1A]">
+            <div id="print-sheet" className="print-page bg-white rounded-xl p-4 sm:p-10 border border-surface-container shadow-md space-y-5 sm:space-y-6 text-[#1E1B1A]">
               {/* Sheet Decorative Header */}
               <div className="text-center pb-5 border-b-2 border-primary/20 space-y-1.5 relative">
+                {getRandomChristmasSvg(`sheet-${activeItem.id}`) && (
+                  <img src={getRandomChristmasSvg(`sheet-${activeItem.id}`)} alt="" aria-hidden="true" className="printable-page-art mx-auto h-14 sm:h-16 w-full max-w-[300px] object-contain" />
+                )}
                 <div className="text-xs uppercase tracking-widest text-secondary font-bold flex items-center justify-center gap-2">
                   <span>✦</span>
                   <span className="font-christmas text-base tracking-wider">Christmas Reset Atelier 2026</span>
@@ -547,7 +623,7 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
               )}
 
               {activeItem.id === 'printable-cards' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="print-greeting-grid grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   {[
                     {
                       no: 1,
@@ -570,15 +646,25 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
                       text: language === 'hu' ? "Világos, bátor és szeretettel teli új esztendőt kívánok sok szép közös pillanattal!" : language === 'en' ? "Wishing you a bright, healthy, joyful New Year filled with renewed vitality and peace!" : "Un an nou plin de claritate, sănătate și noi capitole scrise cu bucurie!",
                     },
                   ].map((card) => (
-                    <div key={card.no} className="p-4 bg-[#FBF8F5] rounded-xl border-2 border-dashed border-[#B93845]/40 space-y-2">
-                      <div className="flex justify-between items-center text-[10px] text-secondary font-bold">
-                        <span>CARD N° {card.no}</span>
-                        <span className="font-christmas text-sm text-primary">Atelier 2026</span>
+                    <div key={card.no} className={`print-greeting-card print-greeting-card-${card.no} relative overflow-hidden rounded-xl border p-4 sm:p-5`}>
+                      {holidayPhotos.length > 0 && (
+                        <div className="greeting-photo-band -mx-5 -mt-5 mb-4 h-20 overflow-hidden">
+                          <img src={holidayPhotos[(card.no - 1) % holidayPhotos.length]} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                      {getRandomChristmasSvg(`greeting-${activeItem.id}-${card.no}`) && (
+                        <img src={getRandomChristmasSvg(`greeting-${activeItem.id}-${card.no}`)} alt="" aria-hidden="true" className="greeting-card-art" />
+                      )}
+                      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.2em]">
+                        <span>{language === 'hu' ? 'Ünnepi üdvözlet' : language === 'en' ? 'Holiday greeting' : 'Urări de sărbători'}</span>
+                        <span>№ 0{card.no} · 2026</span>
                       </div>
-                      <h5 className="font-serif font-bold text-primary text-base">{card.title}</h5>
-                      <p className="font-serif italic text-on-surface-variant text-xs leading-relaxed">"{card.text}"</p>
-                      <div className="pt-2 text-[10px] text-right text-primary-container font-semibold">
-                        {language === 'hu' ? "[ Félbehajtható A5 formátum ]" : language === 'en' ? "[ Foldable A5 Format ]" : "[ Format pliant A5 ]"}
+                      <div className="my-3 h-px bg-current opacity-25" />
+                      <h5 className="font-serif text-lg sm:text-xl font-bold leading-tight">{card.title}</h5>
+                      <p className="mt-2 font-serif italic text-xs sm:text-sm leading-relaxed">“{card.text}”</p>
+                      <div className="mt-4 flex items-center justify-between border-t border-current/20 pt-2 text-[9px] font-semibold uppercase tracking-wider">
+                        <span>Christmas Reset · Atelier</span>
+                        <span>{language === 'hu' ? 'Szeretettel' : language === 'en' ? 'With warmth' : 'Cu drag'}</span>
                       </div>
                     </div>
                   ))}
@@ -675,9 +761,8 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
               )}
 
               {/* Sheet Footer Signature */}
-              <div className="pt-4 border-t border-surface-container flex items-center justify-between text-[11px] text-on-surface-variant">
+              <div className={`print-sheet-footer pt-4 border-t border-surface-container flex items-center justify-between text-[11px] text-on-surface-variant ${activeItem.id === 'printable-cards' ? 'justify-center' : ''}`}>
                 <span className="font-christmas text-sm text-primary">Christmas Reset 2026 • 24 Days to a Calmer Christmas</span>
-                <span className="font-mono">www.christmasreset.com</span>
               </div>
             </div>
 
@@ -692,7 +777,7 @@ export const PrintableResourcesView: React.FC<PrintableResourcesViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handlePrint(activeItem)}
+                onClick={handlePrintActive}
                 className="bg-primary-container hover:bg-primary text-white px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />

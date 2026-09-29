@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, AlertTriangle, CheckCircle2, Circle, Sparkles, Printer, ArrowRight, ShieldCheck, Calendar, Gift, ShoppingBag, Utensils, Heart, Lock, Crown } from 'lucide-react';
 import { SupportedLanguage, EmergencyTimeframe, UserProgress, PricingTier } from '../types';
 import { trackEvent } from '../utils/analytics';
+import { printA4, type PrintOrientation } from '../utils/printA4';
 
 interface EmergencyModeProps {
   language: SupportedLanguage;
@@ -225,6 +226,7 @@ export const EmergencyMode: React.FC<EmergencyModeProps> = ({
   onOpenPaywall,
 }) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<EmergencyTimeframe>('30-days');
+  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('landscape');
   const langKey = language === 'hu' ? 'hu' : language === 'en' ? 'en' : 'ro';
   const isHu = language === 'hu';
 
@@ -246,7 +248,7 @@ export const EmergencyMode: React.FC<EmergencyModeProps> = ({
 
   const handlePrint = () => {
     trackEvent('emergency_mode_printed', { timeframe: selectedTimeframe });
-    window.print();
+    printA4(printOrientation);
   };
 
   const completedCount = plan.tasks.filter((t) => !!userProgress.emergencyCompletedTasks?.[t.id]).length;
@@ -303,7 +305,7 @@ export const EmergencyMode: React.FC<EmergencyModeProps> = ({
       </div>
 
       {/* Plan Card */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-[#EAE3D5] shadow-sm space-y-6 sm:space-y-8 relative overflow-hidden">
+      <div id="emergency-print-sheet" className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 border border-[#EAE3D5] shadow-sm space-y-6 sm:space-y-8 relative overflow-hidden">
         {currentLocked ? (
           /* Locked Upsell Screen */
           <div className="py-12 px-4 text-center max-w-md mx-auto space-y-5 animate-scale-in">
@@ -361,15 +363,32 @@ export const EmergencyMode: React.FC<EmergencyModeProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={handlePrint}
-                className="self-start sm:self-center px-4 py-2.5 rounded-xl border border-[#2E5844] text-[#2E5844] hover:bg-[#E6EFEA] text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer no-print"
-              >
-                <Printer className="w-4 h-4" />
-                <span>
-                  {language === 'hu' ? 'Lista nyomtatása' : language === 'en' ? 'Print plan' : 'Imprimă planul'}
-                </span>
-              </button>
+              <div className="no-print flex flex-col items-start sm:items-end gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2.5 rounded-xl border border-[#2E5844] text-[#2E5844] hover:bg-[#E6EFEA] text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>
+                    {language === 'hu' ? 'Lista nyomtatása' : language === 'en' ? 'Print plan' : 'Imprimă planul'}
+                  </span>
+                </button>
+                <div className="inline-flex items-center gap-1 rounded-lg border border-[#EAE3D5] bg-[#FAF7F2] p-1" role="group" aria-label={language === 'hu' ? 'Nyomtatási tájolás' : language === 'en' ? 'Print orientation' : 'Orientarea imprimării'}>
+                  {(['portrait', 'landscape'] as const).map((orientation) => (
+                    <button
+                      key={orientation}
+                      type="button"
+                      aria-pressed={printOrientation === orientation}
+                      onClick={() => setPrintOrientation(orientation)}
+                      className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${printOrientation === orientation ? 'bg-[#2E5844] text-white' : 'text-[#534343] hover:bg-white'}`}
+                    >
+                      {orientation === 'portrait'
+                        ? (language === 'hu' ? 'Álló' : language === 'en' ? 'Portrait' : 'Portret')
+                        : (language === 'hu' ? 'Fekvő' : language === 'en' ? 'Landscape' : 'Peisaj')}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Progress Bar */}

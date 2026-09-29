@@ -24,6 +24,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { SupportedLanguage } from '../types';
+import { supabase } from '../lib/supabase';
+import { printA4, type PrintOrientation } from '../utils/printA4';
 
 export type CardTheme =
   | 'classic-burgundy'
@@ -161,6 +163,7 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
   const [copied, setCopied] = useState(false);
   const [previewTab, setPreviewTab] = useState<'cover' | 'inside' | 'back' | 'print-sheet'>('cover');
   const [printPageSide, setPrintPageSide] = useState<'outer' | 'inner'>('outer');
+  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('landscape');
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
 
@@ -277,9 +280,13 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
     setGenerationNotice(null);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
       const res = await fetch('/api/generate-card', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           recipient,
           tone,
@@ -290,6 +297,10 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        setGenerationNotice(data.message || (language === 'hu' ? 'A funkció használatához Premium fiók szükséges.' : 'A Premium account is required to use this feature.'));
+        return;
+      }
 
       if (data.card) {
         setCard((prev) => ({
@@ -332,7 +343,7 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
     // Switch to print view for clean output
     setPreviewTab('print-sheet');
     setTimeout(() => {
-      window.print();
+      printA4(printOrientation);
     }, 200);
   };
 
@@ -368,10 +379,10 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
   return (
     <div className="min-h-screen bg-[#fff8f6] text-[#1e1b1a] pb-24">
       {/* Printable Area - Controlled strictly via CSS @media print */}
-      <div id="print-container" className="hidden print:block w-full h-full p-0 m-0">
+      <div id="print-container" className="print-target hidden print:block w-full h-full p-0 m-0">
         {printPageSide === 'outer' ? (
           /* Outer Spread: Left is Back Cover, Right is Front Cover */
-          <div className="w-[297mm] h-[210mm] max-w-full flex items-stretch border border-dashed border-gray-300 relative bg-white page-break-after">
+          <div className="card-print-spread w-[297mm] h-[210mm] max-w-full flex items-stretch border border-dashed border-gray-300 relative bg-white page-break-after">
             {/* Left: Back Cover (Hátlap) */}
             <div className={`w-1/2 p-12 flex flex-col justify-between items-center text-center ${currentTheme.bgCover} ${currentTheme.textCover} border-r-2 border-dashed border-[#ca8a04]/40`}>
               <div className="pt-8">
@@ -424,7 +435,7 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
           </div>
         ) : (
           /* Inner Spread: Left is Inside Poem, Right is Inside Message */
-          <div className="w-[297mm] h-[210mm] max-w-full flex items-stretch border border-dashed border-gray-300 relative bg-[#fffaf8] page-break-after">
+          <div className="card-print-spread w-[297mm] h-[210mm] max-w-full flex items-stretch border border-dashed border-gray-300 relative bg-[#fffaf8] page-break-after">
             {/* Left: Poem Spread */}
             <div className={`w-1/2 p-14 flex flex-col justify-center items-center text-center border-r-2 border-dashed border-[#ca8a04]/30 ${currentTheme.textInside}`}>
               <div className="w-10 h-10 rounded-full border border-[#ca8a04]/40 flex items-center justify-center mb-6 text-[#ca8a04]">
@@ -1040,7 +1051,7 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
                   >
                     <div className="flex items-center justify-between mb-3 border-b pb-2">
                       <span className="text-xs font-bold text-[#2e0208]">
-                        A4 Fekvő Nyomtatási Oldalpár ({printPageSide === 'outer' ? 'Külső oldal: Hátlap + Előlap' : 'Belső oldal: Vers + Üzenet'})
+                        A4 {printOrientation === 'landscape' ? 'Fekvő' : 'Álló'} Nyomtatási Oldalpár ({printPageSide === 'outer' ? 'Külső oldal: Hátlap + Előlap' : 'Belső oldal: Vers + Üzenet'})
                       </span>
                       <div className="flex gap-1.5">
                         <button
@@ -1061,6 +1072,19 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
                         >
                           2. Belső Oldal
                         </button>
+                        {(['portrait', 'landscape'] as const).map((orientation) => (
+                          <button
+                            key={orientation}
+                            type="button"
+                            aria-pressed={printOrientation === orientation}
+                            onClick={() => setPrintOrientation(orientation)}
+                            className={`text-xs px-2.5 py-1 rounded font-bold ${
+                              printOrientation === orientation ? 'bg-[#4a151b] text-white' : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {orientation === 'portrait' ? 'Álló' : 'Fekvő'}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
@@ -1119,7 +1143,7 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
                     </div>
 
                     <div className="mt-3 flex items-center justify-between text-[11px] text-[#534343]">
-                      <span>💡 <strong>Nyomtatási tipp:</strong> Válaszd a 'Fekvő tájolás' (Landscape) beállítást és vastagabb (160-250g) papírt.</span>
+                          <span>💡 <strong>Nyomtatási tipp:</strong> A kiválasztott {printOrientation === 'landscape' ? 'fekvő' : 'álló'} tájolás és vastagabb (160-250g) papír ajánlott.</span>
                       <button
                         onClick={handlePrint}
                         className="px-3 py-1 bg-[#4a151b] text-white rounded font-bold hover:bg-[#2e0208] cursor-pointer"
@@ -1141,8 +1165,8 @@ export const ChristmasCardStudio: React.FC<ChristmasCardStudioProps> = ({
                 </strong>
                 <p className="mt-0.5 leading-relaxed">
                   {language === 'hu'
-                    ? '1. Kattints a "Képeslap Nyomtatása" gombra. 2. A nyomtatónál válaszd a fekvő tájolást. 3. A kinyomtatott A4-es lapot hajtsd pontosan félbe a szaggatott vonal mentén. Az előlap elöl, a hátlap hátul, a vers és az üzenet pedig a belső oldalpáron fog megjelenni!'
-                    : '1. Click "Print Card". 2. Choose Landscape orientation. 3. Fold the printed A4 sheet in half along the center fold line to create a physical greeting card!'}
+                    ? `1. Kattints a "Képeslap Nyomtatása" gombra. 2. A nyomtatónál válaszd a beállított ${printOrientation === 'landscape' ? 'fekvő' : 'álló'} tájolást. 3. A kinyomtatott A4-es lapot hajtsd pontosan félbe a szaggatott vonal mentén. Az előlap elöl, a hátlap hátul, a vers és az üzenet pedig a belső oldalpáron fog megjelenni!`
+                    : '1. Click "Print Card". 2. Choose the selected page orientation in the print dialog. 3. Fold the printed A4 sheet in half along the center fold line to create a physical greeting card!'}
                 </p>
               </div>
             </div>

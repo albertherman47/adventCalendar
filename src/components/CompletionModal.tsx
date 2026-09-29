@@ -45,7 +45,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="relative w-full max-w-2xl bg-white rounded-3xl border-2 border-[#C29B48] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Top Celebration Banner */}
         <div className="bg-gradient-to-r from-[#621927] via-[#46121C] to-[#2E5844] p-6 sm:p-8 text-white text-center relative overflow-hidden">

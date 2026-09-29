@@ -182,7 +182,7 @@ export const Footer: React.FC<FooterProps> = ({
                 100% {language === 'hu' ? 'Digitális termék' : 'Digital Product'}
               </span>
               <span className="text-xs text-[#eedcb2]/60">
-                {t.pricing.guarantee}
+                {language === 'hu' ? 'Online fizetés hamarosan' : 'Online payments coming later'}
               </span>
             </div>
           </div>
